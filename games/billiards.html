@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎱 台球大师</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a05;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;overflow:hidden}
+canvas{border-radius:8px;display:block}
+#hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:24px;z-index:10}
+.stat{background:rgba(0,0,0,.7);border:1px solid rgba(200,150,50,.2);padding:8px 20px;border-radius:8px;text-align:center}
+.stat .v{font-size:22px;font-weight:900;color:#d4a020;text-shadow:0 0 10px rgba(200,150,50,.6)}
+.stat .l{font-size:10px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:2px}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(4px)}
+#overlay h1{font-size:42px;color:#d4a020;text-shadow:0 0 20px rgba(200,150,50,.6);margin-bottom:8px}
+#overlay p{color:rgba(255,255,255,.4);margin-bottom:24px}
+#start-btn{background:linear-gradient(90deg,#d4a020,#a07010);color:#000;padding:14px 48px;border:none;border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;font-family:monospace;box-shadow:0 0 30px rgba(200,150,50,.4)}
+</style></head><body>
+<div id="hud">
+  <div class="stat"><div class="v" id="shots">0</div><div class="l">击球</div></div>
+  <div class="stat"><div class="v" id="pocketed">0</div><div class="l">进袋</div></div>
+</div>
+<div id="overlay">
+  <h1>🎱 台球大师</h1>
+  <p>点击白球拖拽瞄准 · 松手击球 · 把所有彩球打进袋</p>
+  <button id="start-btn" onclick="start()">▶ 开始</button>
+</div>
+<canvas id="c"></canvas>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const W=Math.min(800,window.innerWidth-20),H=Math.min(450,window.innerHeight-80);
+canvas.width=W;canvas.height=H;
+const R=12,POCKET_R=18,BALL_COLORS=[null,'#f5f518','#0047ab','#dc143c','#8b00ff','#ff4500','#228b22','#8b0000','#000','#f5f518','#0047ab','#dc143c','#8b00ff','#ff4500','#228b22','#8b0000'];
+const pockets=[{x:15,y:15},{x:W/2,y:8},{x:W-15,y:15},{x:15,y:H-15},{x:W/2,y:H-8},{x:W-15,y:H-15}];
+let balls=[],cue={},dragging=false,dragStart={},shots=0,pocketed=0;
+const.friction=.985;
+function init(){
+  balls=[{x:W*.25,y:H/2,vx:0,vy:0,r:R,num:0,color:'#f5f5dc',stripes:false,pocketed:false}];
+  const offsets=[{x:W*.55,y:H/2},{x:W*.6,y:H/2-35},{x:W*.6,y:H/2+35},{x:W*.68,y:H/2-60},{x:W*.68,y:H/2},{x:W*.68,y:H/2+60},{x:W*.76,y:H/2-85},{x:W*.76,y:H/2-28},{x:W*.76,y:H/2+28},{x:W*.76,y:H/2+85}];
+  offsets.forEach((o,i)=>balls.push({x:o.x,y:o.y,vx:0,vy:0,r:R,num:i+1,color:POCKET_COLORS[i+1],stripes:i>7,pocketed:false}));
+  cue={};dragging=false;shots=0;pocketed=0;
+  document.getElementById('shots').textContent=0;document.getElementById('pocketed').textContent=0;}
+function POCKET_COLORS(n){return['#f5f5dc','#f5f518','#0047ab','#dc143c','#8b00ff','#ff4500','#228b22','#8b0000','#000','#f5f518','#0047ab','#dc143c','#8b00ff','#ff4500','#228b22','#8b0000'][n]||'#888';}
+canvas.addEventListener('mousedown',e=>{
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const white=balls.find(b=>b.num===0&&!b.pocketed);
+  if(!white)return;
+  const d=Math.sqrt((mx-white.x)**2+(my-white.y)**2);
+  if(d<R*3){
+    dragging=true;dragStart={x:mx,y:my};cue={x:white.x,y:white.y};
+    balls.forEach(b=>{b.vx=0;b.vy=0;});}});
+canvas.addEventListener('mousemove',e=>{
+  if(!dragging)return;
+  const rect=canvas.getBoundingClientRect();
+  cue={x:e.clientX-rect.left,y:e.clientY-rect.top};});
+canvas.addEventListener('mouseup',e=>{
+  if(!dragging)return;
+  dragging=false;
+  const white=balls.find(b=>b.num===0&&!b.pocketed);
+  if(!white)return;
+  const dx=cue.x-white.x,dy=cue.y-white.y;
+  const power=Math.min(25,Math.sqrt(dx*dx+dy*dy)*.15);
+  if(power>1){
+    const angle=Math.atan2(dy,dx);
+    white.vx=Math.cos(angle)*power;white.vy=Math.sin(angle)*power;
+    shots++;document.getElementById('shots').textContent=shots;}});
+function update(){
+  balls.forEach(b=>{if(b.pocketed)return;
+    b.x+=b.vx;b.y+=b.vy;
+    b.vx*=friction;b.vy*=friction;
+    if(Math.abs(b.vx)<.05&&Math.abs(b.vy)<.05){b.vx=0;b.vy=0;}
+    // Walls
+    if(b.x<R){b.x=R;b.vx*=-.8;}if(b.x>W-R){b.x=W-R;b.vx*=-.8;}
+    if(b.y<R){b.y=R;b.vy*=-.8;}if(b.y>H-R){b.y=H-R;b.vy*=-.8;}
+    // Pockets
+    for(const p of pockets){const d=Math.sqrt((b.x-p.x)**2+(b.y-p.y)**2);if(d<POCKET_R){b.pocketed=true;b.vx=0;b.vy=0;pocketed++;document.getElementById('pocketed').textContent=pocketed;break;}}});
+  // Ball collisions
+  for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
+    const a=balls[i],b=balls[j];
+    if(a.pocketed||b.pocketed)continue;
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy);
+    if(d<R*2&&d>0){
+      const nx=dx/d,ny=dy/d,overlap=R*2-d;
+      a.x-=nx*overlap/2;a.y-=ny*overlap/2;
+      b.x+=nx*overlap/2;b.y+=ny*overlap/2;
+      const dvx=b.vx-a.vx,dvy=b.vy-a.vy;
+      const dot=dvx*nx+dvy*ny;
+      if(dot>0){a.vx+=dot*nx;a.vy+=dot*ny;b.vx-=dot*nx;b.vy-=dot*ny;}}}}
+function draw(){
+  // Table felt
+  const felt=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W/2);
+  felt.addColorStop(0,'#1a4a1a');felt.addColorStop(1,'#0d2d0d');
+  ctx.fillStyle=felt;ctx.fillRect(0,0,W,H);
+  // Cushions
+  ctx.fillStyle='#0a3a0a';ctx.fillRect(0,0,W,30);ctx.fillRect(0,H-30,W,30);ctx.fillRect(0,0,30,H);ctx.fillRect(W-30,0,30,H);
+  // Table border
+  ctx.strokeStyle='#5a2a0a';ctx.lineWidth=8;
+  ctx.strokeRect(10,10,W-20,H-20);
+  ctx.strokeStyle='#8b4513';ctx.lineWidth=3;
+  ctx.strokeRect(14,14,W-28,H-28);
+  // Pockets
+  pockets.forEach(p=>{
+    ctx.fillStyle='#000';ctx.shadowColor='#000';ctx.shadowBlur=8;
+    ctx.beginPath();ctx.arc(p.x,p.y,POCKET_R+4,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+    ctx.fillStyle='#111';
+    ctx.beginPath();ctx.arc(p.x,p.y,POCKET_R,0,Math.PI*2);ctx.fill();});
+  // Balls
+  balls.forEach(b=>{
+    if(b.pocketed)return;
+    ctx.shadowColor=b.color;ctx.shadowBlur=8;
+    const bg=ctx.createRadialGradient(b.x-b.r*.3,b.y-b.r*.3,0,b.x,b.y,b.r);
+    bg.addColorStop(0,b.num===0?'#fffff0':b.color);
+    bg.addColorStop(1,b.num===0?'#d4c890':b.stripes?b.color:'rgba(0,0,0,.3)');
+    ctx.fillStyle=bg;
+    ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    // Number
+    if(b.num>0){
+      ctx.fillStyle=b.stripes?'#fff':'rgba(0,0,0,.7)';
+      ctx.beginPath();ctx.arc(b.x,b.y,b.r*.55,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=b.stripes?b.color:'#fff';
+      ctx.font=`bold ${b.r*.7}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(b.num,b.x,b.y);}
+    // Shine
+    ctx.fillStyle='rgba(255,255,255,.4)';
+    ctx.beginPath();ctx.arc(b.x-b.r*.3,b.y-b.r*.3,b.r*.2,0,Math.PI*2);ctx.fill();});
+  // Cue stick
+  if(dragging){
+    const white=balls.find(b=>b.num===0&&!b.pocketed);
+    if(white){
+      const dx=cue.x-white.x,dy=cue.y-white.y;
+      const angle=Math.atan2(dy,dx);
+      const len=80+Math.sqrt(dx*dx+dy*dy)*.5;
+      ctx.strokeStyle='#c4a060';ctx.lineWidth=4;
+      ctx.beginPath();
+      ctx.moveTo(white.x+Math.cos(angle)*len,white.y+Math.sin(angle)*len);
+      ctx.lineTo(white.x+Math.cos(angle)*R,white.y+Math.sin(angle)*R);
+      ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=8;
+      ctx.beginPath();
+      ctx.moveTo(white.x+Math.cos(angle)*len,white.y+Math.sin(angle)*len);
+      ctx.lineTo(white.x+Math.cos(angle)*R,white.y+Math.sin(angle)*R);
+      ctx.stroke();}}}
+function loop(){update();draw();requestAnimationFrame(loop);}
+function start(){document.getElementById('overlay').style.display='none';document.getElementById('overlay').querySelector('h1').textContent='🎱 台球大师';init();loop();}
+document.getElementById('overlay').style.display='flex';init();loop();
+</script></body></html>
