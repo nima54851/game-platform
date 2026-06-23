@@ -116,6 +116,14 @@ canvas{display:block}
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script>
+// ── WebGL Check ────────────────────────────────────────────────
+(function checkWebGL(){
+  try{
+    const test=document.createElement('canvas').getContext('webgl');
+    if(!test){alert('⚠️ 您的浏览器不支持WebGL，游戏需要WebGL支持。请使用Chrome/Firefox/Edge最新版本。');}
+  }catch(e){}
+})();
+
 // ── Globals ─────────────────────────────────────────────────────
 let scene, camera, renderer, clock;
 let player, bullets=[], enemies=[], particles=[], stars=[];
