@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎯 瞄准训练</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;overflow:hidden}
+canvas{border-radius:8px;display:block;cursor:crosshair}
+#hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:24px;z-index:10}
+.stat{background:rgba(0,0,0,.7);border:1px solid rgba(255,200,50,.2);padding:8px 20px;border-radius:8px;text-align:center}
+.stat .v{font-size:22px;font-weight:900;color:#ffcc00;text-shadow:0 0 10px rgba(255,200,0,.6)}
+.stat .l{font-size:10px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:2px}
+#timer-bar{position:fixed;top:70px;left:50%;transform:translateX(-50%);width:300px;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}
+#timer-fill{height:100%;width:100%;border-radius:3px;background:linear-gradient(90deg,#ff4444,#ffca28,#00ff88);transition:width .1s}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(4px)}
+#overlay h1{font-size:42px;color:#ffcc00;text-shadow:0 0 20px rgba(255,200,0,.6);margin-bottom:8px}
+#overlay p{color:rgba(255,255,255,.4);margin-bottom:24px}
+#start-btn{background:linear-gradient(90deg,#ffcc00,#ff8800);color:#000;padding:14px 48px;border:none;border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;font-family:monospace;box-shadow:0 0 30px rgba(255,200,0,.4)}
+</style></head><body>
+<div id="hud">
+  <div class="stat"><div class="v" id="s">0</div><div class="l">分数</div></div>
+  <div class="stat"><div class="v" id="acc">0%</div><div class="l">命中率</div></div>
+  <div class="stat"><div class="v" id="time">30</div><div class="l">剩余秒</div></div>
+</div>
+<div id="timer-bar"><div id="timer-fill"></div></div>
+<div id="overlay">
+  <h1>🎯 瞄准训练</h1>
+  <p>点击靶子得分 · 限时30秒 · 越准越快分数越高</p>
+  <button id="start-btn" onclick="start()">▶ 开始训练</button>
+</div>
+<canvas id="c"></canvas>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const W=Math.min(600,window.innerWidth-20),H=Math.min(500,window.innerHeight-80);
+canvas.width=W;canvas.height=H;
+let score,total,timeLeft,gameOver,targets,particles,timerInterval;
+particles=[];
+function init(){score=0;total=0;timeLeft=30;targets=[];gameOver=false;particles=[];
+  document.getElementById('s').textContent=0;document.getElementById('acc').textContent='0%';
+  document.getElementById('time').textContent=30;document.getElementById('timer-fill').style.width='100%';}
+function spawnTarget(){
+  const sizes=[40,30,20,15];const pts=[10,20,40,60];
+  const si=Math.floor(Math.random()*sizes.length);
+  targets.push({x:50+Math.random()*(W-100),y:50+Math.random()*(H-150),r:sizes[si],pts:pts[si],t:0,dur:2+Math.random()*2,color:`hsl(${Math.random()*360},80%,60%)`});}
+function spawnParticles(x,y,color,count=12){for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2;const sp=2+Math.random()*4;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:.03,color,r:2+Math.random()*4});}}
+canvas.addEventListener('click',e=>{
+  if(gameOver)return;
+  const rect=canvas.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  total++;
+  let hit=false;
+  for(let i=targets.length-1;i>=0;i--){
+    const t=targets[i];
+    const d=Math.sqrt((mx-t.x)**2+(my-t.y)**2);
+    if(d<t.r){
+      const accuracy=1-d/t.r;
+      const pts=Math.round(t.pts*(1+accuracy));
+      score+=pts;hit=true;
+      spawnParticles(mx,my,t.color,20);
+      targets.splice(i,1);spawnTarget();
+      break;}}
+  if(!hit){spawnParticles(mx,my,'#ff4444',5);}
+  document.getElementById('s').textContent=score;
+  document.getElementById('acc').textContent=Math.round(score/(total*10)*100)+'%';
+});
+function start(){
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('overlay').querySelector('h1').textContent='🎯 瞄准训练';
+  init();spawnTarget();spawnTarget();
+  timerInterval=setInterval(()=>{
+    timeLeft--;document.getElementById('time').textContent=timeLeft;
+    document.getElementById('timer-fill').style.width=(timeLeft/30*100)+'%';
+    if(timeLeft<=0){gameOver=true;clearInterval(timerInterval);
+      document.getElementById('overlay').querySelector('h1').textContent=`🏆 ${score}分！`;
+      document.getElementById('overlay').style.display='flex';}},1000);
+  loop();}
+function update(){
+  if(gameOver)return;
+  targets.forEach(t=>{t.t+=0.016;});
+  targets=targets.filter(t=>t.t<t.dur);
+  if(targets.length<3)spawnTarget();
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life-=p.decay;});
+  particles=particles.filter(p=>p.life>0);}
+function draw(){
+  ctx.fillStyle='#080810';ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='rgba(255,255,255,.03)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // Targets
+  targets.forEach(t=>{
+    const pulse=1+Math.sin(t.t*8)*.05;
+    const r=t.r*pulse;
+    // Outer ring
+    ctx.strokeStyle=t.color;ctx.lineWidth=3;ctx.shadowColor=t.color;ctx.shadowBlur=15;
+    ctx.beginPath();ctx.arc(t.x,t.y,r,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.arc(t.x,t.y,r*.65,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.arc(t.x,t.y,r*.3,0,Math.PI*2);ctx.stroke();
+    // Center dot
+    ctx.fillStyle=t.color;
+    ctx.beginPath();ctx.arc(t.x,t.y,4,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    // Timer ring
+    const prog=t.t/t.dur;
+    ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(t.x,t.y,r+6,0,Math.PI*2*(1-prog));ctx.stroke();
+    // Points
+    ctx.fillStyle=t.color;ctx.font=`bold ${14}px monospace`;
+    ctx.fillText('+'+t.pts,t.x+10,t.y-10);});
+  // Particles
+  particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=5;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});
+  ctx.globalAlpha=1;ctx.shadowBlur=0;
+  // Crosshair at mouse
+  canvas.style.cursor='crosshair';}
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.getElementById('overlay').style.display='flex';init();loop();
+</script></body></html>
