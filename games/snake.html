@@ -1,109 +1,203 @@
 <!DOCTYPE html>
-<html lang="zh"><head><meta charset="UTF-8"><title>🐍 贪吃蛇</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#050d0a;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border:2px solid #00ff88;border-radius:8px;box-shadow:0 0 30px rgba(0,255,136,0.3)}#ui{position:fixed;top:20px;left:50%;transform:translateX(-50%);color:#00ff88;font-size:18px;font-weight:700;display:flex;gap:30px;z-index:10}#overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20}#overlay h1{color:#00ff88;font-size:36px;margin-bottom:10px}#overlay p{color:#666;margin-bottom:20px}#overlay button{background:#00ff88;color:#000;font-size:18px;font-weight:700;padding:12px 36px;border:none;border-radius:10px;cursor:pointer;font-family:monospace}#overlay button:hover{background:#00cc6a}</style></head>
-<body>
-<div id="ui"><span>分数: <b id="score">0</b></span><span>最高: <b id="high">0</b></span></div>
-<div id="overlay"><h1>🐍 贪吃蛇</h1><p>↑↓←→ 控制方向 · 吃食物变长</p><button onclick="startGame()">开始游戏</button></div>
+<html lang="zh"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🐍 贪吃蛇大作战</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}
+canvas{display:block;border-radius:8px}
+#hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:24px;z-index:10}
+.stat{background:rgba(0,0,0,0.7);border:1px solid rgba(0,255,136,0.2);padding:8px 20px;border-radius:8px;text-align:center;backdrop-filter:blur(8px)}
+.stat .v{font-size:22px;font-weight:900;color:#00ff88;text-shadow:0 0 10px rgba(0,255,136,0.8)}
+.stat .l{font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(4px)}
+#overlay h1{font-size:42px;color:#00ff88;text-shadow:0 0 20px rgba(0,255,136,0.8);margin-bottom:8px}
+#overlay p{color:rgba(255,255,255,0.5);margin-bottom:30px;font-size:15px}
+#overlay .score-big{font-size:72px;font-weight:900;color:#fff;text-shadow:0 0 30px rgba(255,255,255,0.5);margin-bottom:8px}
+#overlay .hs{font-size:16px;color:#ffca28;margin-bottom:30px}
+#start-btn{background:#00ff88;color:#000;padding:14px 48px;border:none;border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;font-family:monospace;transition:all .2s;box-shadow:0 0 30px rgba(0,255,136,0.4)}
+#start-btn:hover{transform:scale(1.05);box-shadow:0 0 50px rgba(0,255,136,0.6)}
+</style></head><body>
+<div id="hud">
+  <div class="stat"><div class="v" id="score">0</div><div class="l">分数</div></div>
+  <div class="stat"><div class="v" id="high">0</div><div class="l">最高</div></div>
+  <div class="stat"><div class="v" id="level">1</div><div class="l">等级</div></div>
+</div>
+<div id="overlay">
+  <h1>🐍 贪吃蛇大作战</h1>
+  <p>↑ ↓ ← → 或 W A S D 控制方向 · 吃光球变长</p>
+  <div class="score-big" id="end-score" style="display:none"></div>
+  <div class="hs" id="end-hs" style="display:none"></div>
+  <button id="start-btn" onclick="startGame()">▶ 开始游戏</button>
+</div>
 <canvas id="c"></canvas>
 <script>
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-const W = 400, H = 400, CELL = 20;
-canvas.width = W; canvas.height = H;
-const COLS = W/CELL, ROWS = H/CELL;
-let snake, dir, food, score, gameOver, frame, speed;
-let high = parseInt(localStorage.getItem('snake_hs')||'0');
-document.getElementById('high').textContent = high;
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const W=Math.min(600,window.innerWidth-20),H=Math.min(600,window.innerHeight-60),CELL=20;
+canvas.width=W;canvas.height=H;
+const COLS=W/CELL,ROWS=H/CELL;
 
-function init() {
-  snake = [{x:5,y:10},{x:4,y:10},{x:3,y:10}];
-  dir = {x:1,y:0};
-  score = 0; frame = 0; speed = 8;
-  placeFood();
-  document.getElementById('score').textContent = 0;
+let snake,dir,foods,score,gameOver,frame,speed,particles,high;
+high=parseInt(localStorage.getItem('snake_hs2')||'0');
+document.getElementById('high').textContent=high;
+particles=[];
+
+function init(){
+  snake=[{x:5,y:10},{x:4,y:10},{x:3,y:10}];
+  dir={x:1,y:0};
+  score=0;frame=0;speed=6;foods=[];
+  document.getElementById('score').textContent=0;document.getElementById('level').textContent=1;
+  spawnFood();spawnFood();spawnFood();
 }
 
-function placeFood() {
-  do { food = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)}; }
-  while (snake.some(s=>s.x===food.x&&s.y===food.y));
+function spawnFood(){
+  const types=['normal','bonus','speed'];
+  const type=Math.random()<.7?'normal':Math.random()<.5?'bonus':'speed';
+  let pos;
+  do{pos={x:Math.floor(Math.random()*COLS),y:Math.floor(Math.random()*ROWS)};}
+  while(snake.some(s=>s.x===pos.x&&s.y===pos.y)||foods.some(f=>f.x===pos.x&&f.y===pos.y));
+  foods.push({...pos,type,t:0});
 }
 
-function startGame() {
-  document.getElementById('overlay').style.display = 'none';
-  gameOver = false;
-  init();
-  loop();
+function addParticles(x,y,color,count=8){
+  for(let i=0;i<count;i++){
+    const angle=Math.random()*Math.PI*2;
+    const speed=1+Math.random()*3;
+    particles.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:1,decay:.02+Math.random()*.02,color,r:2+Math.random()*3});
+  }
 }
 
-document.addEventListener('keydown', e => {
-  const map = {ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},
-                w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0}};
-  const nd = map[e.key];
-  if (nd && (nd.x !== -dir.x || nd.y !== -dir.y)) dir = nd;
-  if (e.key===' '&&gameOver) startGame();
+document.addEventListener('keydown',e=>{
+  const m={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0}};
+  const nd=m[e.key];
+  if(nd&&!(nd.x===-dir.x&&nd.y===-dir.y))dir=nd;
+  if(e.key===' '&&gameOver)startGame();
 });
 
-function update() {
-  if (gameOver) return;
+function update(){
+  if(gameOver)return;
   frame++;
-  if (frame % (12 - Math.min(speed, 10)) !== 0) return;
+  const dropSpeed=Math.max(4,14-Math.min(speed,12));
+  if(frame%dropSpeed!==0)return;
 
-  const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
-  if (head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS||snake.some(s=>s.x===head.x&&s.y===head.y)) {
-    gameOver=true; showOver(); return;
+  const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+  if(head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS){
+    gameOver=true;showOver();return;
+  }
+  if(snake.some(s=>s.x===head.x&&s.y===head.y)){
+    gameOver=true;showOver();return;
   }
   snake.unshift(head);
-  if (head.x===food.x&&head.y===food.y) {
-    score++; document.getElementById('score').textContent=score;
-    if (score>high){high=score;document.getElementById('high').textContent=high;localStorage.setItem('snake_hs',high);}
-    if (score%5===0&&speed<10)speed++;
-    placeFood();
-  } else { snake.pop(); }
+
+  let ate=false;
+  foods.forEach((f,fi)=>{
+    if(f.x===head.x&&f.y===head.y){
+      ate=true;
+      const pts={normal:10,bonus:25,speed:5}[f.type];
+      score+=pts;document.getElementById('score').textContent=score;
+      if(score>high){high=score;localStorage.setItem('snake_hs2',high);document.getElementById('high').textContent=high;}
+      const cols={normal:'#00ff88',bonus:'#ffca28',speed:'#29b6f6'};
+      addParticles(f.x*CELL+CELL/2,f.y*CELL+CELL/2,cols[f.type],15);
+      foods.splice(fi,1);
+      if(foods.length<3)spawnFood();
+      if(score%30===0&&speed<12)speed++;
+      document.getElementById('level').textContent=Math.floor(score/30)+1;
+    }
+  });
+  if(!ate)snake.pop();
 }
 
-function draw() {
-  ctx.fillStyle='#050d0a';
-  ctx.fillRect(0,0,W,H);
+function draw(){
+  // Background gradient
+  const bg=ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#030a06');bg.addColorStop(1,'#061208');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
 
-  // Grid
-  ctx.strokeStyle='rgba(0,255,136,0.05)';
-  for(let i=0;i<=COLS;i++){ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,H);ctx.stroke();}
-  for(let i=0;i<=ROWS;i++){ctx.beginPath();ctx.moveTo(0,i*CELL);ctx.lineTo(W,i*CELL);ctx.stroke();}
+  // Grid dots
+  ctx.fillStyle='rgba(0,255,136,0.04)';
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    ctx.beginPath();ctx.arc(c*CELL+CELL/2,r*CELL+CELL/2,1,0,Math.PI*2);ctx.fill();
+  }
+
+  // Foods
+  foods.forEach(f=>{
+    f.t++;
+    const cols={normal:{c:'#00ff88',g:'rgba(0,255,136,0.4)'},bonus:{c:'#ffca28',g:'rgba(255,202,40,0.4)'},speed:{c:'#29b6f6',g:'rgba(41,182,246,0.4)'}};
+    const col=cols[f.type];
+    const pulse=1+Math.sin(f.t*0.1)*0.2;
+    const r=CELL/2*pulse;
+    ctx.shadowColor=col.c;ctx.shadowBlur=15+f.t*.1;
+    const g=ctx.createRadialGradient(f.x*CELL+CELL/2,f.y*CELL+CELL/2,0,f.x*CELL+CELL/2,f.y*CELL+CELL/2,r);
+    g.addColorStop(0,col.c);g.addColorStop(1,col.g);
+    ctx.fillStyle=g;
+    ctx.beginPath();ctx.arc(f.x*CELL+CELL/2,f.y*CELL+CELL/2,r,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  });
 
   // Snake
   snake.forEach((s,i)=>{
+    const isHead=i===0;
+    const t=i/snake.length;
     const g=ctx.createRadialGradient(s.x*CELL+CELL/2,s.y*CELL+CELL/2,0,s.x*CELL+CELL/2,s.y*CELL+CELL/2,CELL/2);
-    g.addColorStop(0,i===0?'#00ff88':'#00cc66');
-    g.addColorStop(1,i===0?'#00cc55':'#009944');
+    if(isHead){g.addColorStop(0,'#00ff88');g.addColorStop(1,'#00cc55');}
+    else{g.addColorStop(0,`rgba(0,${Math.floor(220-t*80)},${Math.floor(100-t*50)},1)`);g.addColorStop(1,`rgba(0,${Math.floor(150-t*60)},${Math.floor(60-t*30)},1)`);}
+    ctx.shadowColor=isHead?'#00ff88':'#00cc55';ctx.shadowBlur=isHead?12:6;
     ctx.fillStyle=g;
     ctx.beginPath();
-    ctx.roundRect(s.x*CELL+1,s.y*CELL+1,CELL-2,CELL-2,4);
+    const rr=Math.min(CELL/2-1,CELL*(isHead?0.55:0.5));
+    ctx.roundRect(s.x*CELL+CELL/2-rr,s.y*CELL+CELL/2-rr,rr*2,rr*2,rr*.5);
     ctx.fill();
+    // Eyes on head
+    if(isHead){
+      const ex=s.x*CELL+CELL/2+dir.x*5,ey=s.y*CELL+CELL/2+dir.y*5;
+      ctx.shadowBlur=0;
+      ctx.fillStyle='#fff';
+      ctx.beginPath();ctx.arc(ex-3,ey-3,2.5,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(ex+3,ey+3,2.5,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#000';
+      ctx.beginPath();ctx.arc(ex-3+dir.x,ey-3+dir.y,1.2,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(ex+3+dir.x,ey+3+dir.y,1.2,0,Math.PI*2);ctx.fill();
+    }
+    ctx.shadowBlur=0;
   });
 
-  // Food
-  ctx.fillStyle='#ff4466';
-  ctx.shadowColor='#ff4466';ctx.shadowBlur=10;
-  ctx.beginPath();
-  ctx.arc(food.x*CELL+CELL/2,food.y*CELL+CELL/2,CELL/2-2,0,Math.PI*2);
-  ctx.fill();
-  ctx.shadowBlur=0;
+  // Particles
+  particles.forEach(p=>{
+    ctx.globalAlpha=p.life;
+    ctx.fillStyle=p.color;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fill();
+  });
+  ctx.globalAlpha=1;
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vx*=.95;p.vy*=.95;p.life-=p.decay;});
+  particles=particles.filter(p=>p.life>0);
+
+  // Level up flash
+  if(frame%50===0&&frame>0){
+    ctx.fillStyle=`rgba(0,255,136,${.05})`;
+    ctx.fillRect(0,0,W,H);
+  }
 }
 
-function showOver() {
+function showOver(){
+  addParticles(snake[0].x*CELL+CELL/2,snake[0].y*CELL+CELL/2,'#ef5350',30);
   const ov=document.getElementById('overlay');
   ov.querySelector('h1').textContent='💀 游戏结束';
-  ov.querySelector('p').textContent=`最终分数: ${score} · 最高: ${high}`;
+  ov.querySelector('p').textContent='按空格或点击重新开始';
+  const es=document.getElementById('end-score');
+  es.style.display='block';es.textContent=`分数：${score}`;
+  const eh=document.getElementById('end-hs');
+  eh.style.display='block';eh.textContent=`最高分：${high}`;
   ov.style.display='flex';
 }
 
-function loop() {
-  if (gameOver) return;
-  update(); draw();
-  requestAnimationFrame(loop);
+function startGame(){
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('end-score').style.display='none';
+  document.getElementById('end-hs').style.display='none';
+  gameOver=false;init();loop();
 }
 
-// Start on load
-document.getElementById('overlay').style.display = 'flex';
-</script>
-</body></html>
+function loop(){if(!gameOver)update();draw();requestAnimationFrame(loop);}
+
+document.getElementById('overlay').style.display='flex';
+init();loop();
+</script></body></html>
