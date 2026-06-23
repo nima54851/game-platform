@@ -1,82 +1,133 @@
 <!DOCTYPE html>
-<html lang="zh"><head><meta charset="UTF-8"><title>🔢 2048</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0f0a1e;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}#ui{position:fixed;top:20px;left:50%;transform:translateX(-50%);display:flex;gap:24px;color:#e2e8f0;font-size:16px;z-index:10}#ui span{background:rgba(255,255,255,0.05);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)}canvas{border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.5)}#overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20}#overlay h1{color:#f59e0b;font-size:36px;margin-bottom:10px}#overlay p{color:#666;margin-bottom:20px}#overlay button{background:#f59e0b;color:#000;font-size:18px;font-weight:700;padding:12px 36px;border:none;border-radius:10px;cursor:pointer;font-family:monospace}</style></head>
-<body>
-<div id="ui"><span>分数: <b id="s">0</b></span><span>最高: <b id="h">0</b></span><button onclick="location.reload()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#888;padding:6px 16px;border-radius:8px;cursor:pointer;font-family:monospace">重新开始</button></div>
+<html lang="zh"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🔢 2048 数字挑战</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0812;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;font-family:monospace}
+#hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:16px;z-index:10}
+.stat{background:rgba(0,0,0,0.7);border:1px solid rgba(240,147,51,0.2);padding:8px 20px;border-radius:8px;text-align:center;backdrop-filter:blur(8px)}
+.stat .v{font-size:22px;font-weight:900;color:#f0934c;text-shadow:0 0 10px rgba(240,147,51,0.6)}
+.stat .l{font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(4px)}
+#overlay h1{font-size:42px;background:linear-gradient(90deg,#f0934c,#f0934c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:900;margin-bottom:8px}
+#overlay p{color:rgba(255,255,255,0.5);margin-bottom:24px;font-size:14px}
+#start-btn{background:linear-gradient(90deg,#f0934c,#f0934c);color:#000;padding:14px 48px;border:none;border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;font-family:monospace;transition:all .2s;box-shadow:0 0 30px rgba(240,147,51,0.4)}
+#start-btn:hover{transform:scale(1.05);box-shadow:0 0 50px rgba(240,147,51,0.6)}
+</style></head><body>
+<div id="hud">
+  <div class="stat"><div class="v" id="s">0</div><div class="l">分数</div></div>
+  <div class="stat"><div class="v" id="h">0</div><div class="l">最高</div></div>
+</div>
+<div id="overlay">
+  <h1>🔢 2048</h1>
+  <p>↑ ↓ ← → 滑动合并方块，挑战2048！</p>
+  <button id="start-btn" onclick="startGame()">▶ 开始挑战</button>
+</div>
 <canvas id="c"></canvas>
-<div id="overlay"><h1>🔢 2048</h1><p>↑↓←→ 滑动合并 · 挑战2048!</p><button onclick="startGame()">开始游戏</button></div>
 <script>
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
-const SIZE=4, TILE=100, GAP=12, PAD=16;
-const W=H=SIZE*TILE+(SIZE+1)*GAP+PAD*2;
+const SIZE=4,TILE=Math.min(80,(Math.min(window.innerWidth,window.innerHeight)-80)/SIZE),GAP=10,PAD=16;
+const W=H=SIZE*TILE+(SIZE-1)*GAP+PAD*2;
 canvas.width=W;canvas.height=H;
 
-const COLORS={2:'#eee4da',4:'#ede0c8',8:'#f2b179',16:'#f59563',32:'#f67c5f',64:'#f65e3b',128:'#edcf72',256:'#edcc61',512:'#edc850',1024:'#edc53f',2048:'#edc22e',4096:'#3c3a32',8192:'#3c3a32'};
-const TEXTCOL={2:'#776e65',4:'#776e65',8:'#f9f6f2',16:'#f9f6f2',32:'#f9f6f2',64:'#f9f6f2',128:'#f9f6f2',256:'#f9f6f2',512:'#f9f6f2',1024:'#f9f6f2',2048:'#f9f6f2'};
+const COLORS={
+  2:{bg:'#eee4da',fg:'#776e65',glow:'rgba(238,228,218,0.3)'},
+  4:{bg:'#ede0c8',fg:'#776e65',glow:'rgba(237,224,200,0.3)'},
+  8:{bg:'#f2b179',fg:'#f9f6f2',glow:'rgba(242,177,121,0.4)'},
+  16:{bg:'#f59563',fg:'#f9f6f2',glow:'rgba(245,149,99,0.4)'},
+  32:{bg:'#f67c5f',fg:'#f9f6f2',glow:'rgba(246,124,95,0.4)'},
+  64:{bg:'#f65e3b',fg:'#f9f6f2',glow:'rgba(246,94,59,0.5)'},
+  128:{bg:'#edcf72',fg:'#f9f6f2',glow:'rgba(237,207,114,0.5)'},
+  256:{bg:'#edcc61',fg:'#f9f6f2',glow:'rgba(237,204,97,0.5)'},
+  512:{bg:'#edc850',fg:'#f9f6f2',glow:'rgba(237,200,80,0.6)'},
+  1024:{bg:'#edc53f',fg:'#f9f6f2',glow:'rgba(237,197,63,0.6)'},
+  2048:{bg:'#edc22e',fg:'#f9f6f2',glow:'rgba(237,194,46,0.8)'},
+  4096:{bg:'#3c3a32',fg:'#f9f6f2',glow:'rgba(60,58,50,0.5)'},
+};
 
-let grid, score, high, gameOver, won;
-high=parseInt(localStorage.getItem('2048_hs')||'0');
+let grid,score,high,won,animTiles;
+high=parseInt(localStorage.getItem('2048_hs2')||'0');
 document.getElementById('h').textContent=high;
+animTiles=[];
 
-function init() { grid=Array.from({length:SIZE},()=>Array(SIZE).fill(0)); score=0; won=false; addTile(); addTile(); }
-function addTile() { let z=[]; for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++)if(!grid[i][j])z.push({i,j}); if(z.length) { const p=z[Math.floor(Math.random()*z.length)]; grid[p.i][p.j]=Math.random()<.9?2:4; } }
+function init(){grid=Array.from({length:SIZE},()=>Array(SIZE).fill(0));score=0;won=false;addTile();addTile();}
+function addTile(){
+  let z=[];for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++)if(!grid[i][j])z.push({i,j});
+  if(z.length){const p=z[Math.floor(Math.random()*z.length)];grid[p.i][p.j]=Math.random()<.9?2:4;
+    animTiles.push({i:p.i,j:p.j,v:grid[p.i][p.j],a:1,scale:0.5,t:0});}
+}
 
-function slide(row) {
-  let arr=row.filter(x=>x!==0), rest=Array(SIZE-arr.length).fill(0), newRow=[];
-  for(let i=0;i<arr.length;i++) {
-    if(i<arr.length-1&&arr[i]===arr[i+1]) { newRow.push(arr[i]*2); score+=arr[i]*2; i++; }
+function slide(row){
+  let arr=row.filter(x=>x!==0),newRow=[];
+  for(let i=0;i<arr.length;i++){
+    if(i<arr.length-1&&arr[i]===arr[i+1]){newRow.push(arr[i]*2);score+=arr[i]*2;i++;}
     else newRow.push(arr[i]);
   }
   while(newRow.length<SIZE)newRow.push(0);
-  return {row:newRow, moved:JSON.stringify(row)!==JSON.stringify(newRow)};
+  return{row:newRow,moved:JSON.stringify(row)!==JSON.stringify(newRow)};
 }
 
-function rotate(g) { const n=Array.from({length:SIZE},()=>Array(SIZE).fill(0)); for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++)n[i][j]=g[j][SIZE-1-i]; return n; }
+function rotate(g){const n=Array.from({length:SIZE},()=>Array(SIZE).fill(0));for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++)n[i][j]=g[j][SIZE-1-i];return n;}
 
-function move(dir) {
+function move(dir){
   let g=JSON.parse(JSON.stringify(grid));
   for(let k=0;k<dir;k++)g=rotate(g);
   let moved=false;
   for(let i=0;i<SIZE;i++){const r=slide(g[i]);g[i]=r.row;if(r.moved)moved=true;}
   for(let k=0;k<(4-dir)%4;k++)g=rotate(g);
-  if(moved){grid=g;addTile();document.getElementById('s').textContent=score;if(score>high){high=score;document.getElementById('h').textContent=high;localStorage.setItem('2048_hs',high);}if(!won&&grid.some(r=>r.some(v=>v>=2048))){won=true;}}
+  if(moved){grid=g;addTile();document.getElementById('s').textContent=score;if(score>high){high=score;document.getElementById('h').textContent=high;localStorage.setItem('2048_hs2',high);}}
   draw();
-  if(grid.every(r=>r.every(v=>v>0))){checkGameOver();}
+  if(!won&&grid.some(r=>r.some(v=>v>=2048))){won=true;document.getElementById('overlay').querySelector('h1').textContent='🎉 2048达成！';document.getElementById('overlay').style.display='flex';}
+  checkOver();
 }
 
-function checkGameOver() {
+function checkOver(){
   for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++)if(grid[i][j]===0)return;
   for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE-1;j++)if(grid[i][j]===grid[i][j+1]||grid[j][i]===grid[j+1][i])return;
   document.getElementById('overlay').querySelector('h1').textContent='💀 结束';
-  document.getElementById('overlay').querySelector('p').textContent='没有可合并的方块了 · 分数: '+score;
+  document.getElementById('overlay').querySelector('p').textContent='没有可合并的方块了 · 分数：'+score;
   document.getElementById('overlay').style.display='flex';
 }
 
-function draw() {
-  ctx.fillStyle='#0f0a1e';
-  ctx.fillRect(0,0,W,H);
+function draw(){
+  ctx.fillStyle='#0a0812';ctx.fillRect(0,0,W,H);
   for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++){
     const x=PAD+GAP+j*(TILE+GAP),y=PAD+GAP+i*(TILE+GAP);
-    const v=grid[i][j];
-    ctx.fillStyle=COLORS[v]||'#3c3a32';
+    ctx.fillStyle='#1a1420';
     ctx.beginPath();ctx.roundRect(x,y,TILE,TILE,8);ctx.fill();
-    if(v){
-      ctx.fillStyle=TEXTCOL[v]||'#f9f6f2';
-      ctx.font=`bold ${v>999?36:v>99?42:52}px monospace`;
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(v,x+TILE/2,y+TILE/2);
-    }
+  }
+  animTiles.forEach(t=>{
+    t.a-=0.08;t.scale+=(1.05-t.scale)*0.3;t.t++;
+    const x=PAD+GAP+t.j*(TILE+GAP),y=PAD+GAP+t.i*(TILE+GAP);
+    const col=COLORS[t.v]||{bg:'#3c3a32',fg:'#f9f6f2',glow:'rgba(60,58,50,0.5)'};
+    ctx.save();ctx.globalAlpha=t.a;ctx.translate(x+TILE/2,y+TILE/2);ctx.scale(t.scale,t.scale);
+    ctx.shadowColor=col.glow;ctx.shadowBlur=15;
+    ctx.fillStyle=col.bg;
+    ctx.beginPath();ctx.roundRect(-TILE/2,-TILE/2,TILE,TILE,8);ctx.fill();
+    ctx.shadowBlur=0;ctx.restore();
+  });
+  animTiles=animTiles.filter(t=>t.a>0);
+  for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++){
+    const v=grid[i][j];if(!v)continue;
+    const x=PAD+GAP+j*(TILE+GAP),y=PAD+GAP+i*(TILE+GAP);
+    const col=COLORS[v]||{bg:'#3c3a32',fg:'#f9f6f2',glow:'rgba(60,58,50,0.5)'};
+    ctx.shadowColor=col.glow;ctx.shadowBlur=v>=128?15:8;
+    ctx.fillStyle=col.bg;
+    ctx.beginPath();ctx.roundRect(x,y,TILE,TILE,8);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle=col.fg;
+    const fs=v>999?28:v>99?34:44;
+    ctx.font=`bold ${fs}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(v,x+TILE/2,y+TILE/2);
   }
 }
 
 document.addEventListener('keydown',e=>{
-  const m={ArrowUp:[1],ArrowDown:[3],ArrowLeft:[0],ArrowRight:[2],w:[1],s:[3],a:[0],d:[2]};
+  const m={ArrowUp:[1],ArrowDown:[3],ArrowLeft:[0],ArrowRight:[2]};
   if(m[e.key])move(m[e.key][0]);
 });
 
-function startGame(){document.getElementById('overlay').style.display='none';init();draw();}
+function startGame(){document.getElementById('overlay').style.display='none';document.getElementById('overlay').querySelector('h1').textContent='🎉 2048达成！';document.getElementById('overlay').querySelector('p').textContent='按空格或点击重新开始';init();draw();}
 document.getElementById('overlay').style.display='flex';
 init();draw();
-</script>
-</body></html>
+</script></body></html>
