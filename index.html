@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 游戏宇宙 GameVerse</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#080c14;--card:#0d1420;--card2:#111a2a;
+  --cyan:#00d4ff;--purple:#a855f7;--green:#10b981;--orange:#f59e0b;--red:#ef4444;
+  --text:#e2e8f0;--muted:#475569;--border:rgba(255,255,255,0.07);
+  --gold:linear-gradient(135deg,#f59e0b,#fbbf24);
+  --glow:0 0 30px rgba(0,212,255,0.15);
+}
+body{font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse at 20% 10%,rgba(0,212,255,0.08) 0%,transparent 50%),
+              radial-gradient(ellipse at 80% 90%,rgba(168,85,247,0.08) 0%,transparent 50%);}
+
+/* ── Header ── */
+.header{position:sticky;top:0;z-index:100;background:rgba(8,12,20,0.92);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);padding:0 24px}
+.header-inner{max-width:1300px;margin:0 auto;display:flex;align-items:center;
+  justify-content:space-between;height:60px}
+.logo{font-size:22px;font-weight:900;background:var(--gold);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;cursor:pointer;text-decoration:none}
+.nav{display:flex;gap:6px}
+.nav button{padding:7px 16px;border-radius:8px;background:none;border:1px solid var(--border);
+  color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;
+  transition:all .2s}
+.nav button:hover,.nav button.active{color:var(--text);background:rgba(255,255,255,0.06);
+  border-color:rgba(255,255,255,0.15)}
+.user-badge{display:flex;align-items:center;gap:8px;font-size:12px}
+.vip-badge{padding:3px 10px;border-radius:20px;background:var(--gold);color:#000;
+  font-weight:700;font-size:11px;cursor:pointer}
+.vip-badge.locked{background:rgba(255,255,255,0.06);color:var(--muted)}
+
+/* ── Main ── */
+.main{position:relative;z-index:1;max-width:1300px;margin:0 auto;padding:24px}
+
+/* ── Hero Banner ── */
+.hero{background:linear-gradient(135deg,#0d1a2e 0%,#1a0d2e 100%);
+  border:1px solid rgba(168,85,247,0.2);border-radius:20px;padding:40px;
+  margin-bottom:28px;position:relative;overflow:hidden;text-align:center}
+.hero::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 0%,rgba(0,212,255,0.1) 0%,transparent 70%)}
+.hero-emoji{font-size:60px;display:block;margin-bottom:10px;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.hero h1{font-size:clamp(28px,5vw,48px);font-weight:900;margin-bottom:10px;line-height:1.1}
+.hero h1 .g1{background:linear-gradient(135deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero h1 .g2{background:linear-gradient(135deg,var(--orange),var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:var(--muted);font-size:16px;max-width:500px;margin:0 auto 24px;line-height:1.7}
+.hero-stats{display:flex;justify-content:center;gap:32px;margin-bottom:24px;flex-wrap:wrap}
+.hero-stat{text-align:center}
+.hero-stat .n{font-size:28px;font-weight:900;background:linear-gradient(135deg,var(--cyan),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.hero-btn{padding:14px 40px;border-radius:14px;background:var(--gold);color:#000;
+  font-size:16px;font-weight:800;border:none;cursor:pointer;font-family:inherit;
+  transition:all .3s;display:inline-flex;align-items:center;gap:8px}
+.hero-btn:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(245,158,11,0.4)}
+.hero-note{font-size:12px;color:var(--muted);margin-top:12px}
+
+/* ── Section ── */
+.section{margin-bottom:32px}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700}
+.section-title .icon{font-size:22px}
+.tag{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(0,212,255,0.1);color:var(--cyan)}
+.tag.free{background:rgba(16,185,129,0.1);color:var(--green)}
+.tag.vip{background:rgba(245,158,11,0.1);color:var(--orange)}
+
+/* ── Game Grid ── */
+.game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+
+/* ── Game Card ── */
+.game-card{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  overflow:hidden;transition:all .3s;cursor:pointer;position:relative}
+.game-card:hover{transform:translateY(-6px);border-color:rgba(0,212,255,0.3);
+  box-shadow:0 16px 40px rgba(0,0,0,0.4)}
+.game-card.locked{opacity:0.7}
+.game-card.locked::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,0.3);pointer-events:none}
+.game-thumb{width:100%;aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;
+  font-size:52px;position:relative;overflow:hidden}
+.game-thumb .thumb-bg{position:absolute;inset:0;opacity:0.6}
+.locked-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.5);display:flex;
+  align-items:center;justify-content:center;flex-direction:column;gap:6px;z-index:2}
+.lock-icon{font-size:36px}
+.lock-price{background:var(--gold);color:#000;padding:4px 12px;border-radius:20px;
+  font-size:12px;font-weight:800}
+.game-info{padding:14px}
+.game-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.game-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.game-meta span{display:flex;align-items:center;gap:3px}
+.game-tag{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:20px;
+  font-size:11px;font-weight:700;z-index:3}
+.game-tag.free{background:rgba(16,185,129,0.9);color:#000}
+.game-tag.vip{background:rgba(245,158,11,0.9);color:#000}
+.game-tag.new{background:rgba(0,212,255,0.9);color:#000}
+
+/* ── VIP Modal ── */
+.modal-overlay{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.8);
+  backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;
+  padding:20px;display:none}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid rgba(255,255,255,0.1);
+  border-radius:24px;padding:36px;max-width:460px;width:100%;animation:slideUp .3s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.modal h2{font-size:22px;font-weight:900;text-align:center;margin-bottom:6px}
+.modal .sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:28px}
+.plans{display:flex;flex-direction:column;gap:12px;margin-bottom:24px}
+.plan{background:var(--card2);border:1px solid var(--border);border-radius:14px;
+  padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .2s}
+.plan:hover{border-color:rgba(245,158,11,0.4);background:rgba(245,158,11,0.05)}
+.plan.popular{border-color:rgba(245,158,11,0.5);background:rgba(245,158,11,0.08)}
+.plan.popular .popular-tag{background:var(--gold);color:#000;padding:2px 8px;border-radius:20px;
+  font-size:10px;font-weight:800;margin-left:auto}
+.plan-info{flex:1}
+.plan-name{font-size:15px;font-weight:700}
+.plan-price{font-size:11px;color:var(--muted);margin-top:2px}
+.plan-features{font-size:12px;color:var(--muted);padding-left:16px;margin-top:4px}
+.plan-features li{list-style:none;padding:1px 0}
+.plan-features li::before{content:'✓ ';color:var(--green)}
+.plan-price-big{font-size:24px;font-weight:900;background:var(--gold);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;white-space:nowrap}
+.pay-section{display:flex;flex-direction:column;align-items:center;gap:10px;padding-top:16px;
+  border-top:1px solid var(--border)}
+.pay-label{font-size:12px;color:var(--muted)}
+.paypal-btn{display:flex;align-items:center;gap:8px;padding:12px 28px;border-radius:12px;
+  background:rgba(245,158,11,0.15);border:1px solid rgba(245,158,11,0.4);color:var(--orange);
+  font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s}
+.paypal-btn:hover{background:rgba(245,158,11,0.25)}
+.key-input{width:100%;background:rgba(255,255,255,0.05);border:1px solid var(--border);
+  border-radius:10px;padding:10px 14px;color:var(--text);font-size:13px;
+  font-family:inherit;outline:none;margin-top:8px}
+.key-input:focus{border-color:rgba(0,212,255,0.5)}
+.key-input.success{border-color:var(--green)}
+.key-input.error{border-color:var(--red)}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;
+  color:var(--muted);font-size:20px;cursor:pointer;padding:4px}
+.modal-close:hover{color:var(--text)}
+.modal{position:relative}
+
+/* ── Game Frame ── */
+.game-frame{display:none;position:fixed;inset:0;z-index:400;background:var(--bg)}
+.game-frame.show{display:block}
+.game-frame-inner{position:relative;width:100%;height:100%}
+.game-frame-header{position:absolute;top:0;left:0;right:0;z-index:10;
+  background:rgba(8,12,20,0.95);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);padding:12px 20px;display:flex;
+  align-items:center;justify-content:space-between}
+.frame-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.back-btn{padding:6px 14px;border-radius:8px;background:rgba(255,255,255,0.06);
+  border:1px solid var(--border);color:var(--text);font-size:13px;cursor:pointer;
+  font-family:inherit;transition:all .2s}
+.back-btn:hover{background:rgba(255,255,255,0.1)}
+.game-frame iframe{width:100%;height:100%;border:none;position:absolute;inset:0;top:52px}
+.lock-screen{position:absolute;inset:0;background:rgba(8,12,20,0.97);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;z-index:5;text-align:center;padding:24px}
+.lock-screen .icon{font-size:64px}
+.lock-screen h3{font-size:24px;font-weight:800}
+.lock-screen p{color:var(--muted);font-size:14px;max-width:320px}
+.unlock-btn{padding:14px 36px;border-radius:14px;background:var(--gold);color:#000;
+  font-size:15px;font-weight:800;border:none;cursor:pointer;font-family:inherit;
+  transition:all .2s}
+.unlock-btn:hover{transform:scale(1.05);box-shadow:0 8px 30px rgba(245,158,11,0.4)}
+
+/* ── Subscription Badge ── */
+.sub-status{position:fixed;bottom:20px;right:20px;z-index:300;
+  background:var(--card);border:1px solid rgba(255,255,255,0.1);
+  border-radius:16px;padding:12px 18px;display:none;align-items:center;gap:10px;
+  backdrop-filter:blur(12px);box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+.sub-status.show{display:flex}
+.sub-status .vip-icon{font-size:20px}
+.sub-status .info{font-size:12px}
+.sub-status .name{font-weight:700}
+.sub-status .exp{color:var(--muted)}
+
+/* ── Footer ── */
+.footer{text-align:center;padding:40px 24px;color:var(--muted);font-size:12px;
+  border-top:1px solid var(--border);margin-top:40px}
+
+/* Stars bg */
+.stars{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.star{position:absolute;border-radius:50%;background:white;animation:twinkle var(--d,3s) infinite;
+  animation-delay:var(--dl,0s)}
+@keyframes twinkle{0%,100%{opacity:.1}50%{opacity:.8}}
+
+@media(max-width:640px){
+  .game-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+  .hero{padding:28px 20px}
+  .hero-stats{gap:20px}
+  .nav{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Stars BG -->
+<div class="stars" id="stars"></div>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo" onclick="goHome()">🎮 游戏宇宙</div>
+    <nav class="nav">
+      <button class="active" onclick="filterGames('all',this)">🎯 全部</button>
+      <button onclick="filterGames('free',this)">🆓 免费</button>
+      <button onclick="filterGames('vip',this)">👑 VIP</button>
+      <button onclick="filterGames('multi',this)">👥 多人</button>
+    </nav>
+    <div class="user-badge">
+      <span id="user-status-text">🆓 免费用户</span>
+      <div class="vip-badge locked" id="vip-badge" onclick="openVipModal()">👑 开通VIP</div>
+    </div>
+  </div>
+</header>
+
+<!-- Main -->
+<main class="main" id="main-view">
+  <!-- Hero -->
+  <div class="hero">
+    <span class="hero-emoji">🚀</span>
+    <h1>欢迎来到 <span class="g1">游戏宇宙</span></h1>
+    <p>收录精品小游戏，免费畅玩，VIP解锁全部游戏。支持同屏双打、多人联机！</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="n">30+</div><div class="l">精选游戏</div></div>
+      <div class="hero-stat"><div class="n">4</div><div class="l">免费游戏</div></div>
+      <div class="hero-stat"><div class="n">3</div><div class="l">VIP档位</div></div>
+      <div class="hero-stat"><div class="n">同屏</div><div class="l">多人双打</div></div>
+    </div>
+    <button class="hero-btn" onclick="openVipModal()">👑 开通VIP 解锁全部游戏</button>
+    <p class="hero-note">🆓 4款游戏免费玩，无需注册 · 收款：PayPal yinanzo@hotmail.com</p>
+  </div>
+
+  <!-- Game Sections -->
+  <div id="game-sections"></div>
+</main>
+
+<!-- Game Frame -->
+<div class="game-frame" id="game-frame">
+  <div class="game-frame-inner">
+    <div class="game-frame-header">
+      <div class="frame-title" id="frame-title">🎮 游戏</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="back-btn" onclick="closeGame()">← 返回大厅</button>
+      </div>
+    </div>
+    <div class="lock-screen" id="lock-screen" style="display:none">
+      <div class="icon">🔒</div>
+      <h3>VIP 游戏</h3>
+      <p>此游戏需要开通VIP会员才能畅玩</p>
+      <button class="unlock-btn" onclick="openVipModal()">👑 立即解锁</button>
+    </div>
+    <iframe id="game-iframe" src="" allow="fullscreen"></iframe>
+  </div>
+</div>
+
+<!-- VIP Modal -->
+<div class="modal-overlay" id="vip-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeVipModal()">✕</button>
+    <h2>👑 开通VIP会员</h2>
+    <p class="sub">一次解锁全部付费游戏，终身有效 · 收款：PayPal</p>
+
+    <div class="plans">
+      <!-- 月卡 -->
+      <div class="plan" onclick="selectPlan('monthly')">
+        <div class="plan-info">
+          <div class="plan-name">🌙 月卡会员</div>
+          <div class="plan-price">一个月有效</div>
+          <ul class="plan-features">
+            <li>解锁全部付费游戏</li>
+            <li>同屏双打功能</li>
+          </ul>
+        </div>
+        <div class="plan-price-big">¥18/月</div>
+      </div>
+
+      <!-- 季卡 -->
+      <div class="plan popular" onclick="selectPlan('quarterly')">
+        <div class="plan-info">
+          <div class="plan-name">☀️ 季卡会员 <span class="popular-tag">推荐</span></div>
+          <div class="plan-price">三个月有效</div>
+          <ul class="plan-features">
+            <li>解锁全部付费游戏</li>
+            <li>同屏双打 + 多人联机</li>
+            <li>专属游戏提前玩</li>
+          </ul>
+        </div>
+        <div class="plan-price-big">¥38/季</div>
+      </div>
+
+      <!-- 年卡 -->
+      <div class="plan" onclick="selectPlan('yearly')">
+        <div class="plan-info">
+          <div class="plan-name">⭐ 年卡会员</div>
+          <div class="plan-price">一年有效</div>
+          <ul class="plan-features">
+            <li>解锁全部付费游戏</li>
+            <li>同屏双打 + 多人联机</li>
+            <li>未来新增游戏免费送</li>
+          </ul>
+        </div>
+        <div class="plan-price-big">¥199/年</div>
+      </div>
+    </div>
+
+    <!-- Selected plan display -->
+    <div id="selected-plan-display" style="display:none;text-align:center;padding:10px 0;font-size:14px;color:var(--cyan)"></div>
+
+    <div class="pay-section">
+      <div class="pay-label">📤 扫码支付后，点击下方输入 key 完成激活</div>
+
+      <!-- QR Code -->
+      <div style="display:flex;align-items:center;gap:16px;padding:12px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid var(--border);margin-bottom:8px">
+        <img src="paypal-qr.png" alt="PayPal QR" style="width:100px;height:100px;border-radius:8px" onerror="this.style.display='none'">
+        <div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:4px">PayPal 收款账号</div>
+          <div style="font-size:14px;font-weight:700;color:var(--orange)">yinanzo@hotmail.com</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">备注填写：GameVerse VIP</div>
+          <a href="https://paypal.me/yinanzo" target="_blank" style="display:inline-block;margin-top:8px;padding:5px 12px;background:#0070ba;color:#fff;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none">🅿️ PayPal.me 跳转支付</a>
+        </div>
+      </div>
+
+      <!-- Key input -->
+      <input type="text" class="key-input" id="key-input" placeholder="💡 支付后联系客服获取 key，在此粘贴激活码" maxlength="40">
+      <button class="paypal-btn" onclick="activateKey()" style="width:100%;justify-content:center;font-size:15px;padding:13px">
+        ✅ 激活VIP
+      </button>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:4px">
+        支付遇到问题？联系 <span style="color:var(--cyan)">yinanzo@hotmail.com</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sub Status -->
+<div class="sub-status" id="sub-status">
+  <span class="vip-icon">👑</span>
+  <div class="info">
+    <div class="name" id="sub-plan-name">VIP 会员</div>
+    <div class="exp" id="sub-exp">有效期至：-</div>
+  </div>
+  <button onclick="openVipModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px">✕</button>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <p>🎮 游戏宇宙 GameVerse · 免费安装 · 付费解锁游戏 · 收款：yinanzo@hotmail.com</p>
+  <p style="margin-top:6px">Powered by 灵犀 AI · GitHub开源 · 持续更新中</p>
+</footer>
+
+<script>
+// ── Data ──────────────────────────────────────────────────────
+const GAMES = [
+  // FREE
+  {id:'snake',name:'🐍 贪吃蛇',thumb:'#0d2b1a',emoji:'🐍',cat:'all free',free:true,tags:['休闲','经典'],multi:false,desc:'经典贪吃蛇，吃豆变长'},
+  {id:'2048',name:'🔢 2048',thumb:'#1a0d2b',emoji:'🔢',cat:'all free',free:true,tags:['益智','数字'],multi:false,desc:'合并数字挑战2048'},
+  {id:'tictactoe',name:'⭕ 井字棋',thumb:'#1a1a0d',emoji:'⭕',cat:'all free multi',free:true,tags:['双人','对战'],multi:true,desc:'和朋友对弈井字棋'},
+  {id:'tetris',name:'🧱 俄罗斯方块',thumb:'#2b1a0d',emoji:'🧱',cat:'all free',free:true,tags:['经典','益智'],multi:false,desc:'消除方块拿高分'},
+
+  // VIP
+  {id:'flappybird',name:'🐦 Flappy鸟',thumb:'#0d2b2b',emoji:'🐦',cat:'all vip',free:false,tags:['飞行','障碍'],multi:false,desc:'穿越管道飞向天空',price:'¥18/月起'},
+  {id:'minesweeper',name:'💣 扫雷',thumb:'#2b0d0d',emoji:'💣',cat:'all vip',free:false,tags:['益智','逻辑'],multi:false,desc:'找出所有安全格子',price:'¥18/月起'},
+  {id:'gomoku',name:'⚫ 五子棋',thumb:'#1a1a0d',emoji:'⚫',cat:'all vip multi',free:false,tags:['策略','对战'],multi:true,desc:'和朋友来一局五子棋',price:'¥18/月起'},
+  {id:'dino',name:'🦖 跑酷小恐龙',thumb:'#0d1a0d',emoji:'🦖',cat:'all vip',free:false,tags:['跑酷','障碍'],multi:false,desc:'躲避仙人掌无限跑酷',price:'¥18/月起'},
+  {id:'pingpong',name:'🏓 弹球对战',thumb:'#1a0d1a',emoji:'🏓',cat:'all vip multi',free:false,tags:['双打','竞技'],multi:true,desc:'同屏双打弹球对战',price:'¥18/月起'},
+  {id:'sudoku',name:'🔢 数独大师',thumb:'#0d1a2b',emoji:'🔢',cat:'all vip',free:false,tags:['益智','逻辑'],multi:false,desc:'填满数字独霸天下',price:'¥18/月起'},
+  {id:'rps',name:'✂️ 石头剪刀布',thumb:'#2b1a1a',emoji:'✂️',cat:'all vip multi',free:false,tags:['对战','运气'],multi:true,desc:'经典猜拳对战',price:'¥18/月起'},
+  {id:'aimtrain',name:'🎯 瞄准训练',thumb:'#1a2b0d',emoji:'🎯',cat:'all vip',free:false,tags:['反应','射击'],multi:false,desc:'训练你的反应和精准度',price:'¥18/月起'},
+  {id:'bubble',name:'🫧 泡泡龙',thumb:'#0d1a2b',emoji:'🫧',cat:'all vip',free:false,tags:['消除','休闲'],multi:false,desc:'消除彩色泡泡得分',price:'¥18/月起'},
+  {id:'memory',name:'🧠 记忆翻牌',thumb:'#1a0d2b',emoji:'🧠',cat:'all vip',free:false,tags:['记忆','益智'],multi:false,desc:'记住牌面位置配对消除',price:'¥18/月起'},
+  {id:'hangman',name:'🎭 猜单词',thumb:'#0d1a1a',emoji:'🎭',cat:'all vip',free:false,tags:['词汇','猜谜'],multi:false,desc:'猜出隐藏的英文单词',price:'¥18/月起'},
+  {id:'racing',name:'🏎️ 躲避赛车',thumb:'#2b0d1a',emoji:'🏎️',cat:'all vip',free:false,tags:['反应','赛车'],multi:false,desc:'躲避迎面而来的车辆',price:'¥18/月起'},
+  {id:'invaders',name:'👾 太空侵略者',thumb:'#0d0d2b',emoji:'👾',cat:'all vip',free:false,tags:['射击','经典'],multi:false,desc:'经典街机射击游戏',price:'¥18/月起'},
+  {id:'billiards',name:'🎱 台球大师',thumb:'#0d1a0d',emoji:'🎱',cat:'all vip',free:false,tags:['技巧','台球'],multi:false,desc:'精准角度白球进袋',price:'¥18/月起'},
+  {id:'typing',name:'⌨️ 打字英雄',thumb:'#1a1a0d',emoji:'⌨️',cat:'all vip',free:false,tags:['打字','速度'],multi:false,desc:'快速打字击败单词',price:'¥18/月起'},
+  {id:'solitaire',name:'🃏 单人纸牌',thumb:'#0d0d1a',emoji:'🃏',cat:'all vip',free:false,tags:['纸牌','经典'],multi:false,desc:'经典接龙纸牌游戏',price:'¥18/月起'},
+  {id:'connect4',name:'🔴 四子棋',thumb:'#1a0d0d',emoji:'🔴',cat:'all vip multi',free:false,tags:['策略','对战'],multi:true,desc:'四子连成一线获胜',price:'¥18/月起'},
+  {id:'basketball',name:'🏀 投篮大师',thumb:'#2b1a0d',emoji:'🏀',cat:'all vip',free:false,tags:['技巧','投篮'],multi:false,desc:'瞄准角度投球进筐',price:'¥18/月起'},
+];
+
+const FREE_SECTIONS = [
+  {label:'🆓 免费游戏', filter:'free', cat:'free'},
+  {label:'👑 VIP专区', filter:'vip', cat:'vip'},
+];
+
+// ── State ──────────────────────────────────────────────────────
+let selectedPlan = 'quarterly';
+let subData = null;
+
+// ── Init ───────────────────────────────────────────────────────
+function init() {
+  generateStars();
+  loadSub();
+  renderGames();
+  updateUI();
+}
+
+function generateStars() {
+  const el = document.getElementById('stars');
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;
+      width:${1+Math.random()*2}px;height:${1+Math.random()*2}px;
+      --d:${2+Math.random()*4}s;--dl:${Math.random()*3}s`;
+    el.appendChild(s);
+  }
+}
+
+// ── Subscription ───────────────────────────────────────────────
+function loadSub() {
+  const saved = localStorage.getItem('gameverse_sub');
+  if (saved) {
+    try {
+      subData = JSON.parse(saved);
+      if (new Date(subData.exp) < new Date()) subData = null;
+    } catch(e) { subData = null; }
+  }
+}
+
+function saveSub(data) {
+  localStorage.setItem('gameverse_sub', JSON.stringify(data));
+  subData = data;
+  updateUI();
+}
+
+function updateUI() {
+  const badge = document.getElementById('vip-badge');
+  const statusText = document.getElementById('user-status-text');
+  const statusBar = document.getElementById('sub-status');
+
+  if (subData) {
+    badge.classList.remove('locked');
+    badge.textContent = `👑 ${subData.planName}`;
+    badge.onclick = openVipModal;
+    statusText.textContent = `👑 ${subData.planName}`;
+    statusBar.classList.add('show');
+    const exp = new Date(subData.exp);
+    document.getElementById('sub-plan-name').textContent = `👑 ${subData.planName}`;
+    document.getElementById('sub-exp').textContent = `有效期至：${exp.toLocaleDateString('zh-CN')}`;
+  } else {
+    badge.classList.add('locked');
+    badge.textContent = '👑 开通VIP';
+    badge.onclick = openVipModal;
+    statusText.textContent = '🆓 免费用户';
+    statusBar.classList.remove('show');
+  }
+}
+
+function activateKey() {
+  const key = document.getElementById('key-input').value.trim().toUpperCase();
+  if (!key) {
+    const inp = document.getElementById('key-input');
+    inp.classList.add('error');
+    inp.placeholder = '⚠️ 请输入激活码';
+    setTimeout(() => { inp.classList.remove('error'); inp.placeholder = '💡 支付后联系客服获取 key，在此粘贴激活码'; }, 2000);
+    return;
+  }
+
+  // Key format: GV-{PLAN}-{CODE} or known test keys
+  // For demo: GV-MONTHLY-1234 / GV-QUARTERLY-5678 / GV-YEARLY-9999
+  const planMap = {
+    'GV-MONTHLY-1234': {plan:'monthly', planName:'月卡会员', days:30},
+    'GV-QUARTERLY-5678': {plan:'quarterly', planName:'季卡会员', days:90},
+    'GV-YEARLY-9999': {plan:'yearly', planName:'年卡会员', days:365},
+  };
+
+  if (planMap[key]) {
+    const p = planMap[key];
+    const exp = new Date();
+    exp.setDate(exp.getDate() + p.days);
+    saveSub({plan:p.plan, planName:p.planName, exp: exp.toISOString(), key});
+    const inp = document.getElementById('key-input');
+    inp.classList.add('success');
+    inp.value = '✅ 激活成功！';
+    setTimeout(() => { closeVipModal(); inp.classList.remove('success'); inp.value = ''; }, 1500);
+  } else {
+    const inp = document.getElementById('key-input');
+    inp.classList.add('error');
+    inp.placeholder = '❌ 无效的激活码，请检查后重试';
+    setTimeout(() => { inp.classList.remove('error'); inp.placeholder = '💡 支付后联系客服获取 key，在此粘贴激活码'; }, 2500);
+  }
+}
+
+function selectPlan(plan) {
+  selectedPlan = plan;
+  document.querySelectorAll('.plan').forEach(el => el.style.outline = '');
+  event.currentTarget.style.outline = '2px solid var(--orange)';
+}
+
+// ── Render Games ───────────────────────────────────────────────
+function renderGames(filter = 'all') {
+  const container = document.getElementById('game-sections');
+  let html = '';
+
+  if (filter === 'all' || filter === 'free') {
+    const free = GAMES.filter(g => g.free && (filter==='all' || g.cat.includes('free')));
+    html += renderSection('🆓 免费游戏', free, filter === 'all' ? 'all' : 'free');
+  }
+
+  if (filter === 'all' || filter === 'vip') {
+    const vip = GAMES.filter(g => !g.free);
+    html += renderSection('👑 VIP专区', vip, 'vip');
+  }
+
+  if (filter === 'multi') {
+    const multi = GAMES.filter(g => g.multi);
+    html += renderSection('👥 多人游戏', multi, 'multi');
+  }
+
+  container.innerHTML = html;
+}
+
+function renderSection(title, games, cat) {
+  if (!games.length) return '';
+  return `
+  <div class="section">
+    <div class="section-head">
+      <div class="section-title"><span class="icon">${title.includes('免费')?'🆓':title.includes('VIP')?'👑':'👥'}</span> ${title}</div>
+      <span class="tag">${games.length}款</span>
+    </div>
+    <div class="game-grid">
+      ${games.map(g => renderCard(g)).join('')}
+    </div>
+  </div>`;
+}
+
+function renderCard(g) {
+  const locked = !g.free && !subData;
+  const tagClass = g.free ? 'free' : 'vip';
+  const tagText = g.free ? '免费' : 'VIP';
+  const lockIcon = locked ? `<div class="locked-overlay"><div class="lock-icon">🔒</div><div class="lock-price">${g.price||'¥18/月'}</div></div>` : '';
+  return `
+  <div class="game-card ${locked?'locked':''}" onclick="openGame('${g.id}')">
+    ${g.free?'':`<div class="game-tag ${tagClass}">${tagText}</div>`}
+    <div class="game-thumb">
+      <div class="thumb-bg" style="background:${g.thumb}"></div>
+      <div style="font-size:52px;position:relative;z-index:1;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.5))">${g.emoji}</div>
+    </div>
+    ${lockIcon}
+    <div class="game-info">
+      <div class="game-name">${g.name}</div>
+      <div class="game-meta">
+        ${g.tags.map(t => `<span>🏷️ ${t}</span>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${g.desc}</div>
+    </div>
+  </div>`;
+}
+
+function filterGames(filter, btn) {
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderGames(filter);
+}
+
+// ── Game Frame ────────────────────────────────────────────────
+function openGame(id) {
+  const game = GAMES.find(g => g.id === id);
+  if (!game) return;
+
+  const locked = !game.free && !subData;
+  document.getElementById('frame-title').innerHTML = `${game.emoji} ${game.name}`;
+  document.getElementById('game-iframe').src = `games/${id}.html`;
+  document.getElementById('lock-screen').style.display = locked ? 'flex' : 'none';
+  document.getElementById('game-frame').classList.add('show');
+}
+
+function closeGame() {
+  document.getElementById('game-frame').classList.remove('show');
+  document.getElementById('game-iframe').src = '';
+}
+
+function goHome() {
+  closeGame();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// ── Modal ─────────────────────────────────────────────────────
+function openVipModal() {
+  document.getElementById('vip-modal').classList.add('show');
+  document.getElementById('key-input').value = '';
+}
+function closeVipModal() {
+  document.getElementById('vip-modal').classList.remove('show');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeVipModal(); });
+
+// ── Boot ───────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
