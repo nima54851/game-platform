@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><title>⚫ 五子棋</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0e1a;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 30px rgba(0,0,0,0.5)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:16px;z-index:10;display:flex;gap:20px;align-items:center}#ui span{background:rgba(255,255,255,0.05);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)}</style></head>
+<body>
+<div id="ui"><span id="turn">⚫ 黑棋先行</span><span id="info"></span><button onclick="reset()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#888;padding:6px 16px;border-radius:8px;cursor:pointer;font-family:monospace">重新开始</button></div>
+<canvas id="c"></canvas>
+<script>
+const canvas=document.getElementById('c');const ctx=canvas.getContext('2d');
+const SIZE=15,CELL=Math.min(600,window.innerHeight-80)/SIZE,PAD=20;
+const W=H=SIZE*CELL+PAD*2;canvas.width=W;canvas.height=H;
+let board,currentPlayer,gameOver;
+board=Array.from({length:SIZE},()=>Array(SIZE).fill(null));
+currentPlayer='B';gameOver=false;
+
+function draw(){
+  ctx.fillStyle='#1a0d0d';ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle='#3a2a2a';ctx.lineWidth=1;
+  for(let i=0;i<SIZE;i++){
+    ctx.beginPath();ctx.moveTo(PAD+PELL*CELL,PAD+i*CELL);ctx.lineTo(PAD+(SIZE-1)*CELL,PAD+i*CELL);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(PAD+i*CELL,PAD);ctx.lineTo(PAD+i*CELL,PAD+(SIZE-1)*CELL);ctx.stroke();
+  }
+  // Star points
+  const stars=[[3,3],[3,11],[7,7],[11,3],[11,11]];
+  stars.forEach(([r,c])=>{ctx.fillStyle='#5a3a3a';ctx.beginPath();ctx.arc(PAD+c*CELL,PAD+r*CELL,4,0,Math.PI*2);ctx.fill();});
+  // Stones
+  for(let r=0;r<SIZE;r++)for(let c=0;c<SIZE;c++){
+    if(board[r][c]){
+      const x=PAD+c*CELL,y=PAD+r*CELL;
+      const g=ctx.createRadialGradient(x-3,y-3,0,x,y,CELL*0.45);
+      if(board[r][c]==='B'){g.addColorStop(0,'#555');g.addColorStop(1,'#111');ctx.fillStyle=g;}
+      else{g.addColorStop(0,'#fff');g.addColorStop(1,'#ccc');ctx.fillStyle=g;}
+      ctx.beginPath();ctx.arc(x,y,CELL*0.42,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle=board[r][c]==='B'?'#333':'#999';ctx.lineWidth=1;ctx.stroke();
+    }
+  }
+  if(gameOver){
+    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#ffd700';ctx.font='bold 28px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText((currentPlayer==='B'?'⚪':'⚫')+' 获胜!',W/2,H/2);
+  }
+}
+
+function checkWin(r,c){
+  const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+  for(const[dr,dc]of dirs){
+    let count=1;
+    for(let i=1;i<5;i++){const nr=r+dr*i,nc=c+dc*i;if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&board[nr][nc]===currentPlayer)count++;else break;}
+    for(let i=1;i<5;i++){const nr=r-dr*i,nc=c-dc*i;if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&board[nr][nc]===currentPlayer)count++;else break;}
+    if(count>=5)return true;
+  }
+  return false;
+}
+
+canvas.addEventListener('click',e=>{
+  if(gameOver)return;
+  const rect=canvas.getBoundingClientRect();const scaleX=canvas.width/rect.width;const scaleY=canvas.height/rect.height;
+  const mx=(e.clientX-rect.left)*scaleX,my=(e.clientY-rect.top)*scaleY;
+  const col=Math.round((mx-PAD)/CELL),row=Math.round((my-PAD)/CELL);
+  if(row<0||row>=SIZE||col<0||col>=SIZE||board[row][col])return;
+  board[row][col]=currentPlayer;
+  if(checkWin(row,col)){gameOver=true;document.getElementById('info').textContent=(currentPlayer==='B'?'⚫':'⚪')+' 五连!';}
+  else{currentPlayer=currentPlayer==='B'?'W':'B';document.getElementById('turn').textContent=(currentPlayer==='B'?'⚫':'⚪')+' '+(currentPlayer==='B'?'黑':'白')+'棋';document.getElementById('info').textContent='';}
+  draw();
+});
+
+function reset(){board=Array.from({length:SIZE},()=>Array(SIZE).fill(null));currentPlayer='B';gameOver=false;document.getElementById('turn').textContent='⚫ 黑棋先行';document.getElementById('info').textContent='';draw();}
+draw();
+</script>
+</body></html>
