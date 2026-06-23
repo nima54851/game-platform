@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🔢 数独大师</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0812;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace}
+#wrap{background:rgba(20,10,40,.8);border:1px solid rgba(0,200,255,.15);border-radius:16px;padding:24px;backdrop-filter:blur(10px)}
+#top{display:flex;gap:16px;margin-bottom:16px;align-items:center}
+.stat{background:rgba(0,0,0,.5);border:1px solid rgba(0,200,255,.2);padding:8px 16px;border-radius:8px;text-align:center}
+.stat .v{font-size:20px;font-weight:900;color:#00c8ff;text-shadow:0 0 8px rgba(0,200,255,.6)}
+.stat .l{font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:1px}
+#board{display:grid;grid-template-columns:repeat(9,42px)}
+.cell{width:42px;height:42px;border:1px solid rgba(0,200,255,.1);background:rgba(0,0,0,.3);color:#fff;font-size:20px;font-weight:700;
+  cursor:pointer;transition:all .15s;text-align:center;line-height:42px;position:relative}
+.cell:hover{background:rgba(0,200,255,.08)}
+.cell.fixed{color:#00c8ff;font-weight:900;cursor:default}
+.cell.selected{background:rgba(0,200,255,.15);box-shadow:inset 0 0 10px rgba(0,200,255,.2)}
+.cell.error{background:rgba(255,0,0,.2);color:#ff4444}
+.cell.hint{background:rgba(255,200,0,.1);color:#ffca28}
+.cell:nth-child(3n){border-right:2px solid rgba(0,200,255,.3)}
+.cell:nth-child(n+19):nth-child(-n+27),
+.cell:nth-child(n+46):nth-child(-n+54),
+.cell:nth-child(n+73):nth-child(-n+81){border-bottom:2px solid rgba(0,200,255,.3)}
+.row-sep{border-bottom:2px solid rgba(0,200,255,.3)}
+#num-pad{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:16px;max-width:220px}
+.num-btn{width:40px;height:40px;border-radius:8px;border:1px solid rgba(0,200,255,.2);background:rgba(0,200,255,.05);color:#00c8ff;font-size:18px;font-weight:700;cursor:pointer;transition:all .15s;font-family:monospace}
+.num-btn:hover{background:rgba(0,200,255,.15)}
+#hint-btn{background:rgba(255,200,0,.1);border-color:rgba(255,200,0,.3);color:#ffca28;width:40px}
+#clear-btn{background:rgba(255,0,0,.1);border-color:rgba(255,0,0,.3);color:#ff4444;width:40px}
+#new-btn{background:rgba(0,255,136,.1);border-color:rgba(0,255,136,.3);color:#00ff88}
+#msg{font-size:14px;color:#00ff88;min-height:20px;margin-top:10px;text-align:center;text-shadow:0 0 8px rgba(0,255,136,.5)}
+</style></head><body>
+<div id="wrap">
+  <div id="top">
+    <div class="stat"><div class="v" id="timer">00:00</div><div class="l">用时</div></div>
+    <div class="stat"><div class="v" id="mistakes">0</div><div class="l">错误</div></div>
+    <button class="num-btn" id="new-btn" onclick="newGame()">新局</button>
+    <button class="num-btn" id="hint-btn" onclick="giveHint()">💡</button>
+  </div>
+  <div id="board"></div>
+  <div id="num-pad">
+    <button class="num-btn" onclick="fillNum(1)">1</button>
+    <button class="num-btn" onclick="fillNum(2)">2</button>
+    <button class="num-btn" onclick="fillNum(3)">3</button>
+    <button class="num-btn" onclick="fillNum(4)">4</button>
+    <button class="num-btn" onclick="fillNum(5)">5</button>
+    <button class="num-btn" onclick="fillNum(6)">6</button>
+    <button class="num-btn" onclick="fillNum(7)">7</button>
+    <button class="num-btn" onclick="fillNum(8)">8</button>
+    <button class="num-btn" onclick="fillNum(9)">9</button>
+    <button class="num-btn" id="clear-btn" onclick="fillNum(0)">✕</button>
+  </div>
+  <div id="msg"></div>
+</div>
+<script>
+const board=document.getElementById('board');
+let grid=[],solution=[],fixed=[],selected=-1,startTime=null,timerInterval=null,mistakes=0;
+function newGame(){
+  clearInterval(timerInterval);startTime=Date.now();timerInterval=setInterval(updateTimer,1000);
+  mistakes=0;document.getElementById('mistakes').textContent=0;document.getElementById('msg').textContent='';
+  // Generate solution
+  solution=Array.from({length:9},()=>Array(9).fill(0));
+  fillSudoku(solution);
+  grid=solution.map(r=>[...r]);
+  fixed=Array.from({length:9},()=>Array(9).fill(false));
+  // Remove cells
+  const holes=40;
+  let removed=0;
+  while(removed<holes){
+    const r=Math.floor(Math.random()*9),c=Math.floor(Math.random()*9);
+    if(grid[r][c]!==0){grid[r][c]=0;fixed[r][c]=false;removed++;}else{fixed[r][c]=true;}}
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++)fixed[r][c]=grid[r][c]!==0;
+  render();}
+function fillSudoku(g){
+  const nums=[1,2,3,4,5,6,7,8,9];
+  function solve(g){for(let r=0;r<9;r++)for(let c=0;c<9;c++){if(g[r][c]===0){const.shuffle=nums=>{for(let i=nums.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[nums[i],nums[j]]=[nums[j],nums[i]];}return nums;};const.shuffled=shuffle([...nums]);for(const n of shuffled){if(isValid(g,r,c,n)){g[r][c]=n;if(solve(g))return true;g[r][c]=0;}}return false;}}return true;}
+  solve(g);}
+function isValid(g,r,c,n){for(let i=0;i<9;i++)if(g[r][i]===n||g[i][c]===n)return false;
+  const br=Math.floor(r/3)*3,bc=Math.floor(c/3)*3;
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++)if(g[br+i][bc+j]===n)return false;return true;}
+function render(){
+  board.innerHTML='';
+  for(let r=0;r<9;r++)for(let c=0;c<9;c++){
+    const cell=document.createElement('div');
+    cell.className='cell'+(fixed[r][c]?' fixed':'')+(selected===r*9+c?' selected':'');
+    if(grid[r][c]!==0)cell.textContent=grid[r][c];
+    cell.onclick=()=>selectCell(r,c);
+    board.appendChild(cell);}}
+function selectCell(r,c){if(fixed[r][c])return;selected=r*9+c;render();}
+function fillNum(n){
+  if(selected===-1)return;
+  const r=Math.floor(selected/9),c=selected%9;
+  if(fixed[r][c])return;
+  const old=grid[r][c];grid[r][c]=n;
+  if(n!==0&&!isValidGrid()){grid[r][c]=old;mistakes++;document.getElementById('mistakes').textContent=mistakes;document.getElementById('msg').textContent='❌ 错误！这一行/列/宫已有此数字';setTimeout(()=>document.getElementById('msg').textContent='',2000);}
+  else{document.getElementById('msg').textContent='';if(isComplete()){clearInterval(timerInterval);document.getElementById('msg').textContent='🎉 完成！用时：'+document.getElementById('timer').textContent;}}
+  render();}
+function isValidGrid(){for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(grid[r][c]!==0&&!isValid(grid,r,c,grid[r][c]))return false;return true;}
+function isComplete(){for(let r=0;r<9;r++)for(let c=0;c<9;c++)if(grid[r][c]===0)return false;return true;}
+function giveHint(){if(selected===-1)return;const r=Math.floor(selected/9),c=selected%9;if(fixed[r][c])return;grid[r][c]=solution[r][c];fixed[r][c]=true;render();if(isComplete()){clearInterval(timerInterval);document.getElementById('msg').textContent='🎉 完成！用时：'+document.getElementById('timer').textContent;}}
+function updateTimer(){const s=Math.floor((Date.now()-startTime)/1000);document.getElementById('timer').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+newGame();
+</script></body></html>
