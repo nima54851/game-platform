@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><title>🏓 弹球对战</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#050810;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 30px rgba(0,212,255,0.2)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:16px;z-index:10;display:flex;gap:20px}</style></head>
+<body>
+<div id="ui">
+  <span style="color:#00d4ff">🔵 玩家1: W/S</span>
+  <span style="color:#ff6b6b">🔴 玩家2: ↑/↓</span>
+  <span id="score">0 - 0</span>
+</div>
+<canvas id="c"></canvas>
+<script>
+const canvas=document.getElementById('c');const ctx=canvas.getContext('2d');
+const W=760,H=480;canvas.width=W;canvas.height=H;
+const PADDLE_W=14,PADDLE_H=80,BALL_R=8;
+const PADDLE_SPEED=8;
+
+let p1={x:20,y:H/2-PADDLE_H/2,score:0},p2={x:W-34,y:H/2-PADDLE_H/2,score:0};
+let ball={x:W/2,y:H/2,vx:5,vy:3},serveBall=true;
+let keys={};let frame=0;let rally=0;let gameOver=false;
+
+document.addEventListener('keydown',e=>{keys[e.key]=true;if(e.key===' '&&serveBall){serveBall=false;ball.vx=(Math.random()>.5?1:-1)*(4+Math.random()*2);ball.vy=(Math.random()-.5)*4;}e.preventDefault();});
+document.addEventListener('keyup',e=>{keys[e.key]=false;});
+
+function serve() { ball={x:W/2,y:H/2,vx:0,vy:0}; serveBall=true; rally=0; }
+
+function update() {
+  if(serveBall||gameOver)return;
+  frame++;
+  // P1
+  if(keys['w']||keys['W'])p1.y-=PADDLE_SPEED;
+  if(keys['s']||keys['S'])p1.y+=PADDLE_SPEED;
+  p1.y=Math.max(0,Math.min(H-PADDLE_H,p1.y));
+  // P2
+  if(keys['ArrowUp'])p2.y-=PADDLE_SPEED;
+  if(keys['ArrowDown'])p2.y+=PADDLE_SPEED;
+  p2.y=Math.max(0,Math.min(H-PADDLE_H,p2.y));
+  // Ball
+  ball.x+=ball.vx;ball.y+=ball.vy;
+  // Top/bottom bounce
+  if(ball.y-BALL_R<=0||ball.y+BALL_R>=H){ball.vy*=-1;rally++;}
+  // P1 paddle
+  if(ball.vx<0&&ball.x-BALL_R<=p1.x+PADDLE_W&&ball.x+BALL_R>=p1.x&&ball.y>=p1.y&&ball.y<=p1.y+PADDLE_H){
+    ball.vx=Math.abs(ball.vx)*1.05;
+    ball.vy+=(ball.y-(p1.y+PADDLE_H/2))*0.15;
+    rally++;const spd=Math.sqrt(ball.vx**2+ball.vy**2);if(spd>12){ball.vx*=12/spd;ball.vy*=12/spd;}
+  }
+  // P2 paddle
+  if(ball.vx>0&&ball.x+BALL_R>=p2.x&&ball.x-BALL_R<=p2.x+PADDLE_W&&ball.y>=p2.y&&ball.y<=p2.y+PADDLE_H){
+    ball.vx=-Math.abs(ball.vx)*1.05;
+    ball.vy+=(ball.y-(p2.y+PADDLE_H/2))*0.15;
+    rally++;const spd=Math.sqrt(ball.vx**2+ball.vy**2);if(spd>12){ball.vx*=-12/spd;ball.vy*=12/spd;}
+  }
+  // Score
+  if(ball.x<0){p2.score++;document.getElementById('score').textContent=p1.score+' - '+p2.score;if(p2.score>=5)gameOver=true;serve();}
+  if(ball.x>W){p1.score++;document.getElementById('score').textContent=p1.score+' - '+p2.score;if(p1.score>=5)gameOver=true;serve();}
+}
+
+function draw() {
+  // Background
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#05081a');g.addColorStop(1,'#0a0820');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // Center line
+  ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.setLineDash([10,10]);ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();ctx.setLineDash([]);
+  // Paddles
+  const g1=ctx.createLinearGradient(p1.x,0,p1.x+PADDLE_W,0);
+  g1.addColorStop(0,'#0088cc');g1.addColorStop(1,'#00aaff');
+  ctx.fillStyle=g1;ctx.shadowColor='#00d4ff';ctx.shadowBlur=15;
+  ctx.beginPath();ctx.roundRect(p1.x,p1.y,PADDLE_W,PADDLE_H,4);ctx.fill();ctx.shadowBlur=0;
+  const g2=ctx.createLinearGradient(p2.x,0,p2.x+PADDLE_W,0);
+  g2.addColorStop(0,'#cc4444');g2.addColorStop(1,'#ff6666');
+  ctx.fillStyle=g2;ctx.shadowColor='#ff6b6b';ctx.shadowBlur=15;
+  ctx.beginPath();ctx.roundRect(p2.x,p2.y,PADDLE_W,PADDLE_H,4);ctx.fill();ctx.shadowBlur=0;
+  // Ball
+  if(!serveBall){
+    ctx.fillStyle='#fff';ctx.shadowColor='#fff';ctx.shadowBlur=15;
+    ctx.beginPath();ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+    // Trail
+    ctx.fillStyle='rgba(255,255,255,0.1)';
+    for(let i=1;i<=4;i++){ctx.beginPath();ctx.arc(ball.x-ball.vx*i*0.5,ball.y-ball.vy*i*0.5,BALL_R*(1-i*.15),0,Math.PI*2);ctx.fill();}
+  }
+  // Net
+  ctx.fillStyle='rgba(255,255,255,0.05)';ctx.fillRect(W/2-2,0,4,H);
+  // Score
+  ctx.fillStyle='rgba(0,212,255,0.15)';ctx.font='bold 72px monospace';ctx.textAlign='center';
+  ctx.fillText(p1.score,W/4,H/2+24);
+  ctx.fillStyle='rgba(255,107,107,0.15)';
+  ctx.fillText(p2.score,W*3/4,H/2+24);
+  // Serve prompt
+  if(serveBall&&!gameOver){
+    ctx.fillStyle='rgba(255,255,255,0.6)';ctx.font='14px monospace';ctx.textAlign='center';
+    ctx.fillText('🔵 空格发球',W/2,H-20);
+  }
+  if(gameOver){
+    ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(0,0,W,H);
+    const win=(p1.score>=5?'🔵':'🔴')+' 获胜！';
+    ctx.fillStyle='#ffd700';ctx.font='bold 40px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(win,W/2,H/2-20);
+    ctx.fillStyle='#888';ctx.font='16px monospace';
+    ctx.fillText('按 R 重新开始',W/2,H/2+30);
+  }
+}
+
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+document.addEventListener('keydown',e=>{ if(e.key==='r'||e.key==='R'){p1.score=0;p2.score=0;document.getElementById('score').textContent='0 - 0';gameOver=false;serve();} });
+loop();
+</script>
+</body></html>
