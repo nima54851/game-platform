@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🏎️ 躲避赛车</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+body{background:#050508;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}
+#hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:20px;z-index:10}
+.stat{background:rgba(0,0,0,0.7);border:1px solid rgba(255,100,100,0.2);padding:8px 20px;border-radius:8px;backdrop-filter:blur(8px)}
+.stat .v{font-size:22px;font-weight:900;color:#ff6666;text-shadow:0 0 10px rgba(255,100,100,0.6)}
+.stat .l{font-size:10px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1px}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(4px)}
+#overlay h1{font-size:42px;color:#ff6666;text-shadow:0 0 20px rgba(255,100,100,0.6);margin-bottom:8px}
+#overlay p{color:rgba(255,255,255,0.5);margin-bottom:24px;font-size:14px}
+#overlay .score-big{font-size:72px;font-weight:900;color:#fff;margin-bottom:8px}
+#overlay .hs{font-size:16px;color:#ffca28;margin-bottom:30px}
+#start-btn{background:linear-gradient(90deg,#ff6666,#ff4444);color:#fff;padding:14px 48px;border:none;border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;font-family:monospace;transition:all .2s;box-shadow:0 0 30px rgba(255,100,100,0.4)}
+#start-btn:hover{transform:scale(1.05);box-shadow:0 0 50px rgba(255,100,100,0.6)}
+canvas{border-radius:8px;box-shadow:0 0 40px rgba(0,0,0,0.8)}
+</style></head><body>
+<div id="hud">
+  <div class="stat"><div class="v" id="s">0</div><div class="l">分数</div></div>
+  <div class="stat"><div class="v" id="h">0</div><div class="l">最高</div></div>
+  <div class="stat"><div class="v" id="sp">1</div><div class="l">速度</div></div>
+</div>
+<div id="overlay">
+  <h1>🏎️ 躲避赛车</h1>
+  <p>← → 躲避来车，坚持越久分数越高！</p>
+  <div class="score-big" id="end-s" style="display:none"></div>
+  <div class="hs" id="end-h" style="display:none"></div>
+  <button id="start-btn" onclick="startGame()">▶ 开始</button>
+</div>
+<canvas id="c"></canvas>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const W=Math.min(400,window.innerWidth-20),H=Math.min(700,window.innerHeight-60);
+canvas.width=W;canvas.height=H;
+
+let player,enemies,particles,score,high,speed,frame,gameOver,shakeX,shakeY;
+high=parseInt(localStorage.getItem('racing_hs')||'0');
+document.getElementById('h').textContent=high;
+particles=[];
+
+function init(){
+  player={x:W/2,y:H-100,w:30,h:50,vx:0};
+  enemies=[];particles=[];score=0;speed=4;frame=0;gameOver=false;shakeX=0;shakeY=0;
+  document.getElementById('s').textContent=0;document.getElementById('sp').textContent=1;
+}
+
+function addParticles(x,y,color,count=12){
+  for(let i=0;i<count;i++){
+    const angle=Math.random()*Math.PI*2;
+    const sp=1+Math.random()*4;
+    particles.push({x,y,vx:Math.cos(angle)*sp,vy:Math.sin(angle)*sp,life:1,decay:.02+Math.random()*.02,color,r:2+Math.random()*4});
+  }
+}
+
+let keys={};
+document.addEventListener('keydown',e=>{keys[e.key]=true;if(e.key===' ')e.preventDefault();});
+document.addEventListener('keyup',e=>{keys[e.key]=false;});
+canvas.addEventListener('touchstart',e=>{const rect=canvas.getBoundingClientRect();const touch=e.touches[0];const tx=touch.clientX-rect.left;player.targetX=tx;},{passive:true});
+canvas.addEventListener('touchmove',e=>{const rect=canvas.getBoundingClientRect();const touch=e.touches[0];player.targetX=touch.clientX-rect.left;},{passive:true});
+canvas.addEventListener('click',e=>{const rect=canvas.getBoundingClientRect();player.targetX=e.clientX-rect.left;});
+
+function spawnEnemy(){
+  const types=['car','truck','bike'];
+  const type=types[Math.floor(Math.random()*types.length)];
+  const cw={car:28,truck:36,bike:20}[type];
+  enemies.push({x:Math.random()*(W-cw*2)+cw,y:-80,w:cw,h:{car:55,truck:90,bike:35}[type],type,vx:(Math.random()-.5)*2,speed:2+speed*0.3+Math.random()*2,rot:0});
+}
+
+function update(){
+  if(gameOver)return;
+  frame++;
+  // Player
+  if(keys['ArrowLeft']||keys['a']||keys['A'])player.vx-=0.8;
+  if(keys['ArrowRight']||keys['d']||keys['D'])player.vx+=0.8;
+  if(player.targetX!==undefined){player.vx=(player.targetX-player.x)*0.15;}
+  player.vx*=0.88;
+  player.x+=player.vx;
+  player.x=Math.max(player.w/2,Math.min(W-player.w/2,player.x));
+  // Speed up
+  if(frame%500===0&&speed<10)speed+=0.5;
+  document.getElementById('sp').textContent=Math.floor(speed);
+  // Score
+  if(frame%5===0){score++;document.getElementById('s').textContent=score;if(score>high){high=score;document.getElementById('h').textContent=high;localStorage.setItem('racing_hs',high);}}
+  // Enemies
+  if(frame%Math.max(20,60-Math.floor(speed*3))===0)spawnEnemy();
+  enemies.forEach(e=>{
+    e.y+=e.speed;e.x+=e.vx;
+    e.x=Math.max(e.w/2,Math.min(W-e.w/2,e.x));
+    if(e.y>H)enemies.splice(enemies.indexOf(e),1);
+  });
+  // Collide
+  for(const e of enemies){
+    if(player.x-player.w/2<e.x+e.w/2&&player.x+player.w/2>e.x-e.w/2&&player.y-player.h/2<e.y+e.h/2&&player.y+player.h/2>e.y-e.h/2){
+      gameOver=true;shakeX=15;shakeY=15;
+      addParticles(player.x,player.y,'#ff6666',30);
+      addParticles(e.x,e.y,'#ffca28',20);
+      setTimeout(showOver,500);
+    }
+  }
+  // Particles
+  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life-=p.decay;});
+  particles=particles.filter(p=>p.life>0);
+  // Shake decay
+  shakeX*=.9;shakeY*=.9;
+}
+
+function drawRoad(){
+  ctx.save();ctx.translate(shakeX,shakeY);
+  // Sky gradient
+  const sky=ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,'#0a0a15');sky.addColorStop(1,'#15152a');
+  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  // Stars
+  ctx.fillStyle='rgba(255,255,255,0.3)';
+  for(let i=0;i<30;i++){
+    const sx=(i*73)%W,sy=(i*47)%(H/2);
+    ctx.beginPath();ctx.arc(sx,sy,1,0,Math.PI*2);ctx.fill();
+  }
+  // Road
+  ctx.fillStyle='#1a1a2e';
+  ctx.fillRect(W*0.1,0,W*0.8,H);
+  ctx.strokeStyle='#ffca28';ctx.lineWidth=3;ctx.setLineDash([30,20]);
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();ctx.setLineDash([]);
+  // Road edges
+  ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=4;
+  ctx.beginPath();ctx.moveTo(W*0.12,0);ctx.lineTo(W*0.12,H);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(W*0.88,0);ctx.lineTo(W*0.88,H);ctx.stroke();
+  // Dashes
+  ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=2;
+  for(let i=0;i<6;i++){
+    const y=(frame*speed*0.8+i*(H/6))%H;
+    ctx.beginPath();ctx.moveTo(W*0.25,y);ctx.lineTo(W*0.25,y+20);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(W*0.75,y);ctx.lineTo(W*0.75,y+20);ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawCar(x,y,w,h,color,isPlayer){
+  ctx.save();ctx.translate(shakeX+x,shakeY+y);
+  // Body
+  ctx.shadowColor=color;ctx.shadowBlur=isPlayer?20:10;
+  const g=ctx.createLinearGradient(-w/2,-h/2,w/2,h/2);
+  g.addColorStop(0,color);g.addColorStop(1,isPlayer?'#0088cc':'#661100');
+  ctx.fillStyle=g;
+  ctx.beginPath();
+  ctx.roundRect(-w/2,-h/2,w,h,h/3);
+  ctx.fill();
+  ctx.shadowBlur=0;
+  // Windows
+  ctx.fillStyle='rgba(100,200,255,0.6)';
+  ctx.beginPath();ctx.roundRect(-w/3,-h/6,w*0.65,h/3,h/8);ctx.fill();
+  // Lights
+  ctx.fillStyle=isPlayer?'#00ffff':'#ff4444';
+  ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=8;
+  ctx.beginPath();ctx.arc(-w/3,-h/2+5,3,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(w/3,-h/2+5,3,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.restore();
+}
+
+function draw(){
+  drawRoad();
+  ctx.save();ctx.translate(shakeX,shakeY);
+  // Enemies
+  enemies.forEach(e=>{
+    const col=e.type==='car'?'#ff4444':e.type==='truck'?'#aa44ff':'#ffca28';
+    drawCar(e.x,e.y,e.w,e.h,col,false);
+  });
+  // Player
+  drawCar(player.x,player.y,player.w,player.h,'#00aaff',true);
+  // Particles
+  particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=5;ctx.beginPath();ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);ctx.fill();});
+  ctx.globalAlpha=1;ctx.shadowBlur=0;
+  ctx.restore();
+  // Speed lines
+  if(frame%3===0){
+    ctx.strokeStyle='rgba(255,255,255,0.03)';
+    ctx.beginPath();ctx.moveTo(Math.random()*W,H);ctx.lineTo(Math.random()*W,H+30);ctx.stroke();
+  }
+}
+
+function showOver(){
+  document.getElementById('end-s').style.display='block';document.getElementById('end-s').textContent='分数：'+score;
+  document.getElementById('end-h').style.display='block';document.getElementById('end-h').textContent='最高分：'+high;
+  document.getElementById('overlay').style.display='flex';
+}
+
+function startGame(){
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('end-s').style.display='none';
+  document.getElementById('end-h').style.display='none';
+  init();loop();
+}
+
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.getElementById('overlay').style.display='flex';
+init();loop();
+</script></body></html>
