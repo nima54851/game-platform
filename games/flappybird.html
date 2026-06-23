@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><title>🐦 Flappy鸟</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#1a1a2e;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 30px rgba(0,0,0,0.5)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:16px;z-index:10;display:flex;gap:20px}#ui span{background:rgba(255,255,255,0.05);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)}</style></head>
+<body>
+<div id="ui"><span>分数: <b id="s">0</b></span><span>最高: <b id="h">0</b></span></div>
+<canvas id="c"></canvas>
+<script>
+const canvas=document.getElementById('c');const ctx=canvas.getContext('2d');
+const W=400,H=560;canvas.width=W;canvas.height=H;
+const GRAVITY=0.55,FLAP=-9,GAP=160;
+let bird,y,vel,score,high,frame,gameState,obstacles;
+high=parseInt(localStorage.getItem('flappy_hs')||'0');
+document.getElementById('h').textContent=high;
+
+function startGame(){bird=H/2;vel=0;score=0;frame=0;obstacles=[];gameState='play';document.getElementById('s').textContent=0;}
+
+function drawBg(){
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#1a1a3e');g.addColorStop(1,'#0d0d1a');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // Clouds
+  ctx.fillStyle='rgba(255,255,255,0.03)';
+  for(let i=0;i<5;i++){
+    const cx=(frame*0.3+i*100)%(W+200)-100,cy=60+i*80;
+    ctx.beginPath();ctx.arc(cx,cy,30,0,Math.PI*2);ctx.arc(cx+25,cy-10,25,0,Math.PI*2);ctx.arc(cx+50,cy,30,0,Math.PI*2);ctx.arc(cx+25,cy+5,20,0,Math.PI*2);ctx.fill();
+  }
+  // Ground
+  const gy=H-60;
+  ctx.fillStyle='#1a3a1a';
+  ctx.fillRect(0,gy,W,60);
+  ctx.fillStyle='#2a5a2a';
+  ctx.fillRect(0,gy,W,4);
+}
+
+function drawBird(){
+  ctx.save();ctx.translate(W*0.25,bird);
+  const angle=Math.min(Math.max(vel*3,-30),90)*Math.PI/180;
+  ctx.rotate(angle*Math.PI/180);
+  // Body
+  ctx.fillStyle='#ffd700';ctx.shadowColor='#ffd700';ctx.shadowBlur=10;
+  ctx.beginPath();ctx.ellipse(0,0,18,14,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+  // Wing
+  ctx.fillStyle='#ffaa00';ctx.beginPath();ctx.ellipse(-2,4+Math.sin(frame*0.4)*3,10,6,0.3,0,Math.PI*2);ctx.fill();
+  // Eye
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(6,-3,5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#000';ctx.beginPath();ctx.arc(7,-3,2.5,0,Math.PI*2);ctx.fill();
+  // Beak
+  ctx.fillStyle='#ff6600';ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(22,2);ctx.lineTo(12,4);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+
+function spawnObstacle(){
+  const minH=60,maxH=H-GAP-100;
+  const topH=minH+Math.random()*(maxH-minH);
+  obstacles.push({x:W+40,topH,botY:topH+GAP,passed:false});
+}
+
+function drawObstacles(){
+  obstacles.forEach(o=>{
+    const g=ctx.createLinearGradient(o.x,0,o.x+50,0);
+    g.addColorStop(0,'#2d5a2d');g.addColorStop(1,'#1a3a1a');
+    ctx.fillStyle=g;
+    // Top
+    ctx.fillRect(o.x,0,50,o.topH);
+    ctx.fillStyle='#3a7a3a';ctx.fillRect(o.x,o.topH-20,50,20);
+    // Bottom
+    ctx.fillStyle=g;
+    ctx.fillRect(o.x,o.botY,50,H-o.botY);
+    ctx.fillStyle='#3a7a3a';ctx.fillRect(o.x,o.botY,50,20);
+  });
+}
+
+function update(){
+  if(gameState!=='play')return;
+  frame++;vel+=GRAVITY;bird+=vel;
+  if(frame%80===0)spawnObstacle();
+  obstacles.forEach(o=>o.x-=3);
+  obstacles=obstacles.filter(o=>o.x>-50);
+  obstacles.forEach(o=>{
+    if(!o.passed&&o.x+50<W*0.25){o.passed=true;score++;document.getElementById('s').textContent=score;if(score>high){high=score;document.getElementById('h').textContent=high;localStorage.setItem('flappy_hs',high);}}
+  });
+  const bx=W*0.25,by=bird,br=14;
+  for(const o of obstacles){
+    if(bx+br>o.x&&bx-br<o.x+50&&(by-br<o.topH||by+br>o.botY)){gameState='over';return;}
+  }
+  if(bird>H-60||bird<0){gameState='over';}
+}
+
+function draw(){
+  drawBg();drawObstacles();drawBird();
+  if(gameState==='over'){
+    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#ef4444';ctx.font='bold 32px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('💀 撞到了！',W/2,H/2-40);
+    ctx.fillStyle='#fff';ctx.font='bold 40px monospace';
+    ctx.fillText('分数: '+score,W/2,H/2+10);
+    ctx.fillStyle='#888';ctx.font='16px monospace';
+    ctx.fillText('按任意键重试',W/2,H/2+50);
+  } else if(gameState==='idle'){
+    ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#ffd700';ctx.font='bold 28px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('🐦 Flappy鸟',W/2,H/2-20);
+    ctx.fillStyle='#888';ctx.font='16px monospace';
+    ctx.fillText('按空格/点击 开始',W/2,H/2+20);
+  }
+}
+
+function loop(){update();draw();requestAnimationFrame(loop);}
+document.addEventListener('keydown',e=>{
+  if(gameState==='idle')startGame();
+  else if(gameState==='play'&&e.key===' ')vel=FLAP;
+  else if(gameState==='over')startGame();
+});
+canvas.addEventListener('click',()=>{if(gameState==='idle')startGame();else if(gameState==='play')vel=FLAP;else if(gameState==='over')startGame();});
+gameState='idle';loop();
+</script>
+</body></html>
