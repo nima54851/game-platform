@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><title>⭕ 井字棋</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0e1a;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}#ui{position:fixed;top:20px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:18px;z-index:10;text-align:center}canvas{border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.5)}</style></head>
+<body>
+<div id="ui"><span id="turn">⭕ 先手</span> · <span id="status"></span> · <button onclick="reset()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#888;padding:6px 16px;border-radius:8px;cursor:pointer;font-family:monospace">重新开始</button></div>
+<canvas id="c"></canvas>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const W=360,H=360,CELL=W/3;
+canvas.width=W;canvas.height=H;
+
+let board, turn, gameOver, winner;
+function init(){board=Array(9).fill(null);turn='O';gameOver=false;winner=null;document.getElementById('turn').textContent='⭕ 先手';document.getElementById('status').textContent='';}
+init();
+
+function check() {
+  const w=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for(const[a,b,c]of w)if(board[a]&&board[a]===board[b]&&board[a]===board[c])return board[a];
+  if(board.every(x=>x))return 'draw';
+  return null;
+}
+
+function draw() {
+  ctx.fillStyle='#0a0e1a';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(0,212,255,0.3)';ctx.lineWidth=3;
+  for(let i=1;i<3;i++){ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,H);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*CELL);ctx.lineTo(W,i*CELL);ctx.stroke();}
+  for(let i=0;i<9;i++){const x=i%3,y=Math.floor(i/3),cx=x*CELL+CELL/2,cy=y*CELL+CELL/2;
+    if(board[i]==='O'){ctx.strokeStyle='#00d4ff';ctx.lineWidth=4;ctx.beginPath();ctx.arc(cx,cy,CELL*0.3,0,Math.PI*2);ctx.stroke();}
+    else if(board[i]==='X'){ctx.strokeStyle='#ff6b6b';ctx.lineWidth=4;
+      ctx.beginPath();ctx.moveTo(cx-CELL*0.3,cy-CELL*0.3);ctx.lineTo(cx+CELL*0.3,cy+CELL*0.3);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+CELL*0.3,cy-CELL*0.3);ctx.lineTo(cx-CELL*0.3,cy+CELL*0.3);ctx.stroke();}
+  }
+  if(gameOver&&winner&&winner!=='draw'){
+    ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,W,H);
+    ctx.fillStyle=winner==='O'?'#00d4ff':'#ff6b6b';ctx.font='bold 28px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText((winner==='O'?'⭕':'❌')+' 获胜！',W/2,H/2);
+  } else if(gameOver){ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(0,0,W,H);ctx.fillStyle='#888';ctx.font='bold 28px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('平局！',W/2,H/2);}
+}
+
+canvas.addEventListener('click',e=>{
+  if(gameOver)return;
+  const rect=canvas.getBoundingClientRect();const scaleX=canvas.width/rect.width;const scaleY=canvas.height/rect.height;
+  const mx=(e.clientX-rect.left)*scaleX,my=(e.clientY-rect.top)*scaleY;
+  const col=Math.floor(mx/CELL),row=Math.floor(my/CELL),i=row*3+col;
+  if(board[i])return;
+  board[i]=turn;turn=turn==='O'?'X':'O';
+  const w=check();if(w){gameOver=true;winner=w;document.getElementById('turn').textContent='';document.getElementById('status').textContent=w==='draw'?'平局':(w==='O'?'⭕ 获胜':'❌ 获胜');}
+  else document.getElementById('turn').textContent=(turn==='O'?'⭕':'❌')+' 的回合';
+  draw();
+});
+
+function reset(){init();draw();}
+draw();
+</script>
+</body></html>
