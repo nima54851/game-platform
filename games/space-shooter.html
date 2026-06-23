@@ -432,7 +432,7 @@ function update(){
   starsMesh.rotation.y+=.0001;
 
   // Player movement
-  const speed=keys['ShiftLeft']||keys['ShiftRight']?.3:.2;
+  const shiftSpeed=(keys['ShiftLeft']||keys['ShiftRight'])?0.35:0.2;
   if(keys['KeyW']||keys['ArrowUp'])player.position.z-=speed;
   if(keys['KeyS']||keys['ArrowDown'])player.position.z+=speed;
   if(keys['KeyA']||keys['ArrowLeft'])player.position.x-=speed;
