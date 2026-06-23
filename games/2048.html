@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh"><head><meta charset="UTF-8"><title>🔢 2048</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0f0a1e;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}#ui{position:fixed;top:20px;left:50%;transform:translateX(-50%);display:flex;gap:24px;color:#e2e8f0;font-size:16px;z-index:10}#ui span{background:rgba(255,255,255,0.05);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)}canvas{border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.5)}#overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20}#overlay h1{color:#f59e0b;font-size:36px;margin-bottom:10px}#overlay p{color:#666;margin-bottom:20px}#overlay button{background:#f59e0b;color:#000;font-size:18px;font-weight:700;padding:12px 36px;border:none;border-radius:10px;cursor:pointer;font-family:monospace}</style></head>
+<body>
+<div id="ui"><span>分数: <b id="s">0</b></span><span>最高: <b id="h">0</b></span><button onclick="location.reload()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#888;padding:6px 16px;border-radius:8px;cursor:pointer;font-family:monospace">重新开始</button></div>
+<canvas id="c"></canvas>
+<div id="overlay"><h1>🔢 2048</h1><p>↑↓←→ 滑动合并 · 挑战2048!</p><button onclick="startGame()">开始游戏</button></div>
+<script>
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const SIZE=4, TILE=100, GAP=12, PAD=16;
+const W=H=SIZE*TILE+(SIZE+1)*GAP+PAD*2;
+canvas.width=W;canvas.height=H;
+
+const COLORS={2:'#eee4da',4:'#ede0c8',8:'#f2b179',16:'#f59563',32:'#f67c5f',64:'#f65e3b',128:'#edcf72',256:'#edcc61',512:'#edc850',1024:'#edc53f',2048:'#edc22e',4096:'#3c3a32',8192:'#3c3a32'};
+const TEXTCOL={2:'#776e65',4:'#776e65',8:'#f9f6f2',16:'#f9f6f2',32:'#f9f6f2',64:'#f9f6f2',128:'#f9f6f2',256:'#f9f6f2',512:'#f9f6f2',1024:'#f9f6f2',2048:'#f9f6f2'};
+
+let grid, score, high, gameOver, won;
+high=parseInt(localStorage.getItem('2048_hs')||'0');
+document.getElementById('h').textContent=high;
+
+function init() { grid=Array.from({length:SIZE},()=>Array(SIZE).fill(0)); score=0; won=false; addTile(); addTile(); }
+function addTile() { let z=[]; for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++)if(!grid[i][j])z.push({i,j}); if(z.length) { const p=z[Math.floor(Math.random()*z.length)]; grid[p.i][p.j]=Math.random()<.9?2:4; } }
+
+function slide(row) {
+  let arr=row.filter(x=>x!==0), rest=Array(SIZE-arr.length).fill(0), newRow=[];
+  for(let i=0;i<arr.length;i++) {
+    if(i<arr.length-1&&arr[i]===arr[i+1]) { newRow.push(arr[i]*2); score+=arr[i]*2; i++; }
+    else newRow.push(arr[i]);
+  }
+  while(newRow.length<SIZE)newRow.push(0);
+  return {row:newRow, moved:JSON.stringify(row)!==JSON.stringify(newRow)};
+}
+
+function rotate(g) { const n=Array.from({length:SIZE},()=>Array(SIZE).fill(0)); for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++)n[i][j]=g[j][SIZE-1-i]; return n; }
+
+function move(dir) {
+  let g=JSON.parse(JSON.stringify(grid));
+  for(let k=0;k<dir;k++)g=rotate(g);
+  let moved=false;
+  for(let i=0;i<SIZE;i++){const r=slide(g[i]);g[i]=r.row;if(r.moved)moved=true;}
+  for(let k=0;k<(4-dir)%4;k++)g=rotate(g);
+  if(moved){grid=g;addTile();document.getElementById('s').textContent=score;if(score>high){high=score;document.getElementById('h').textContent=high;localStorage.setItem('2048_hs',high);}if(!won&&grid.some(r=>r.some(v=>v>=2048))){won=true;}}
+  draw();
+  if(grid.every(r=>r.every(v=>v>0))){checkGameOver();}
+}
+
+function checkGameOver() {
+  for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++)if(grid[i][j]===0)return;
+  for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE-1;j++)if(grid[i][j]===grid[i][j+1]||grid[j][i]===grid[j+1][i])return;
+  document.getElementById('overlay').querySelector('h1').textContent='💀 结束';
+  document.getElementById('overlay').querySelector('p').textContent='没有可合并的方块了 · 分数: '+score;
+  document.getElementById('overlay').style.display='flex';
+}
+
+function draw() {
+  ctx.fillStyle='#0f0a1e';
+  ctx.fillRect(0,0,W,H);
+  for(let i=0;i<SIZE;i++)for(let j=0;j<SIZE;j++){
+    const x=PAD+GAP+j*(TILE+GAP),y=PAD+GAP+i*(TILE+GAP);
+    const v=grid[i][j];
+    ctx.fillStyle=COLORS[v]||'#3c3a32';
+    ctx.beginPath();ctx.roundRect(x,y,TILE,TILE,8);ctx.fill();
+    if(v){
+      ctx.fillStyle=TEXTCOL[v]||'#f9f6f2';
+      ctx.font=`bold ${v>999?36:v>99?42:52}px monospace`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(v,x+TILE/2,y+TILE/2);
+    }
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  const m={ArrowUp:[1],ArrowDown:[3],ArrowLeft:[0],ArrowRight:[2],w:[1],s:[3],a:[0],d:[2]};
+  if(m[e.key])move(m[e.key][0]);
+});
+
+function startGame(){document.getElementById('overlay').style.display='none';init();draw();}
+document.getElementById('overlay').style.display='flex';
+init();draw();
+</script>
+</body></html>
