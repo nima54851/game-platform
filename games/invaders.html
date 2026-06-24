@@ -8,6 +8,10 @@ canvas{display:block;border-radius:8px}
 .stat{background:rgba(0,0,0,.7);border:1px solid rgba(0,255,136,.2);padding:8px 20px;border-radius:8px;text-align:center}
 .stat .v{font-size:22px;font-weight:900;color:#00ff88;text-shadow:0 0 10px rgba(0,255,136,.6)}
 .stat .l{font-size:10px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:2px}
+#shield-bar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;z-index:10;background:rgba(0,0,0,.6);padding:6px 16px;border-radius:20px;border:1px solid rgba(0,200,255,.2)}
+#shield-label{font-size:11px;color:rgba(255,255,255,.5);letter-spacing:1px}
+#shield-track{width:120px;height:10px;background:rgba(255,255,255,.1);border-radius:5px;overflow:hidden}
+#shield-fill{height:100%;width:100%;border-radius:5px;background:#00ffcc;transition:width .3s,background .3s;box-shadow:0 0 8px #00ffcc}
 #overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(4px)}
 #overlay h1{font-size:42px;color:#00ff88;text-shadow:0 0 20px rgba(0,255,136,.6);margin-bottom:8px}
 #overlay p{color:rgba(255,255,255,.4);margin-bottom:24px}
@@ -17,6 +21,10 @@ canvas{display:block;border-radius:8px}
   <div class="stat"><div class="v" id="s">0</div><div class="l">分数</div></div>
   <div class="stat"><div class="v" id="lives">3</div><div class="l">生命</div></div>
   <div class="stat"><div class="v" id="wave">1</div><div class="l">波次</div></div>
+</div>
+<div id="shield-bar">
+  <span id="shield-label">护盾</span>
+  <div id="shield-track"><div id="shield-fill"></div></div>
 </div>
 <div id="overlay">
   <h1>👾 太空侵略者</h1>
@@ -39,14 +47,15 @@ class SceneManager {
 
   _buildStars() {
     this.stars = [];
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 160; i++) {
       this.stars.push({
         x: Math.random() * this.W,
         y: Math.random() * (this.H - 80),
-        r: Math.random() * 1.5 + 0.3,
+        r: Math.random() * 2 + 0.2,
         speed: Math.random() * 0.3 + 0.05,
         phase: Math.random() * Math.PI * 2,
-        twinkle: Math.random() > 0.7
+        twinkle: Math.random() > 0.4,
+        color: Math.random() > 0.8 ? (Math.random() > 0.5 ? '#aaddff' : '#ffaaaa') : '#ffffff'
       });
     }
   }
@@ -90,19 +99,22 @@ class SceneManager {
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, this.W, this.H - 30);
 
-    // Stars
+    // Stars with twinkling
     this.stars.forEach(s => {
-      const alpha = s.twinkle ? 0.4 + 0.6 * Math.abs(Math.sin(s.phase)) : 0.6;
+      const alpha = s.twinkle ? 0.3 + 0.7 * Math.abs(Math.sin(s.phase)) : 0.6;
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = s.color;
+      ctx.shadowColor = s.color;
+      ctx.shadowBlur = s.twinkle ? 4 : 0;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
       ctx.fill();
     });
     ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
 
     // Nebula wisps
-    ctx.globalAlpha = 0.04;
+    ctx.globalAlpha = 0.05;
     const neb = ctx.createRadialGradient(this.W * 0.3, this.H * 0.2, 0, this.W * 0.3, this.H * 0.2, 150);
     neb.addColorStop(0, '#8800ff');
     neb.addColorStop(1, 'transparent');
@@ -181,7 +193,7 @@ class Particle {
     this.parts.forEach(p => {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.05; // slight gravity
+      p.vy += 0.05;
       p.vx *= 0.98;
       p.life -= p.decay;
     });
@@ -221,24 +233,31 @@ class Entity {
   }
 }
 
-// ─── Enemy ──────────────────────────────────────────────────────
+// ─── Enemy (UPGRADED: geometric shapes + HP color coding) ───────
 class Enemy extends Entity {
   constructor(x, y, type = 0, wave = 1) {
     super(x, y, 30, 25);
-    this.type = type; // 0=scout(cyan), 1=soldier(green), 2=heavy(orange)
+    this.type = type;
     this.wave = wave;
     this.phase = Math.random() * Math.PI * 2;
     this.speed = [3, 2, 1][type] + wave * 0.3;
-    this.health = [1, 2, 3][type];
+    this.maxHealth = [1, 2, 3][type];
+    this.health = this.maxHealth;
     this.score = [30, 20, 10][type];
     this.alive = true;
   }
 
   get color() {
-    return ['#00ffff', '#00ff88', '#ff8800'][this.type];
+    const hp = this.health / this.maxHealth;
+    if (hp > 0.66) return ['#00ffff', '#00ff88', '#ff8800'][this.type];
+    if (hp > 0.33) return ['#00ccff', '#88ff44', '#ffcc00'][this.type];
+    return ['#ff6600', '#ffaa00', '#ff4444'][this.type];
   }
   get color2() {
-    return ['#0088ff', '#ff44ff', '#ff4444'][this.type];
+    const hp = this.health / this.maxHealth;
+    if (hp > 0.66) return ['#0088ff', '#ff44ff', '#ff4444'][this.type];
+    if (hp > 0.33) return ['#0088cc', '#ff8800', '#ff8800'][this.type];
+    return ['#ff3300', '#ff6600', '#cc0000'][this.type];
   }
 
   update(dir, drop) {
@@ -254,7 +273,7 @@ class Enemy extends Entity {
     const cy = this.y + this.h / 2;
 
     ctx.shadowColor = this.color;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 14;
     ctx.fillStyle = this.color;
 
     if (this.type === 0) {
@@ -265,52 +284,47 @@ class Enemy extends Entity {
       ctx.lineTo(this.x, this.y + this.h + wobble);
       ctx.closePath();
       ctx.fill();
-      // Wing glow
       ctx.strokeStyle = this.color2;
       ctx.lineWidth = 2;
       ctx.shadowColor = this.color2;
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = 8;
       ctx.beginPath();
       ctx.moveTo(this.x - 3, this.y + this.h + wobble);
       ctx.lineTo(this.x + this.w + 3, this.y + this.h + wobble);
       ctx.stroke();
     } else if (this.type === 1) {
-      // Soldier — classic invader body
+      // Soldier — diamond/rhombus geometric soldier
+      const hw = this.w / 2, hh = this.h / 2;
+      const gy = this.y + wobble;
+      // Outer diamond
       ctx.beginPath();
-      ctx.roundRect(this.x, this.y + wobble, this.w, this.h * 0.5, 4);
+      ctx.moveTo(cx, gy - hh - 6);       // top
+      ctx.lineTo(cx + hw + 2, cy + wobble); // right
+      ctx.lineTo(cx, gy + hh + 2);        // bottom
+      ctx.lineTo(cx - hw - 2, cy + wobble); // left
+      ctx.closePath();
       ctx.fill();
+      // Inner diamond
+      ctx.fillStyle = this.color2;
+      ctx.shadowBlur = 0;
       ctx.beginPath();
-      ctx.roundRect(this.x + this.w * 0.1, this.y + wobble - this.h * 0.3, this.w * 0.8, this.h * 0.35, 3);
+      ctx.moveTo(cx, gy - hh + 8);
+      ctx.lineTo(cx + hw - 6, cy + wobble);
+      ctx.lineTo(cx, gy + hh - 8);
+      ctx.lineTo(cx - hw + 6, cy + wobble);
+      ctx.closePath();
       ctx.fill();
-      // Eyes
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(this.x + this.w * 0.3, this.y + wobble - this.h * 0.1, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(this.x + this.w * 0.7, this.y + wobble - this.h * 0.1, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.arc(this.x + this.w * 0.3 + 1, this.y + wobble - this.h * 0.1 + 1, 1.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(this.x + this.w * 0.7 + 1, this.y + wobble - this.h * 0.1 + 1, 1.5, 0, Math.PI * 2);
-      ctx.fill();
-      // Antenna
-      ctx.strokeStyle = this.color;
-      ctx.lineWidth = 2;
+      // HP indicator dots
       ctx.shadowColor = this.color;
-      ctx.beginPath();
-      ctx.moveTo(this.x + this.w * 0.2, this.y + wobble - this.h * 0.3);
-      ctx.lineTo(this.x + this.w * 0.1, this.y + wobble - this.h * 0.55);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(this.x + this.w * 0.8, this.y + wobble - this.h * 0.3);
-      ctx.lineTo(this.x + this.w * 0.9, this.y + wobble - this.h * 0.55);
-      ctx.stroke();
+      ctx.shadowBlur = 6;
+      for (let i = 0; i < this.health; i++) {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(cx - 5 + i * 10, gy - 2, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else {
-      // Heavy — big hexagon tank
+      // Heavy — hexagon tank with HP rings
       const r = this.w / 2;
       ctx.beginPath();
       for (let i = 0; i < 6; i++) {
@@ -321,21 +335,28 @@ class Enemy extends Entity {
       }
       ctx.closePath();
       ctx.fill();
+      // HP bar on heavy
+      const barW = this.w - 4;
+      const barH = 4;
+      const barX = this.x + 2;
+      const barY = this.y + this.h + wobble + 4;
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(barX, barY, barW, barH);
+      const hpRatio = this.health / this.maxHealth;
+      ctx.fillStyle = this.color;
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = 4;
+      ctx.fillRect(barX, barY, barW * hpRatio, barH);
       // Cannon
       ctx.fillStyle = this.color2;
+      ctx.shadowColor = this.color2;
+      ctx.shadowBlur = 6;
       ctx.fillRect(cx - 3, this.y + wobble - 12, 6, 14);
-      // Armor lines
-      ctx.strokeStyle = this.color2;
-      ctx.lineWidth = 1.5;
-      ctx.shadowBlur = 4;
-      ctx.beginPath();
-      ctx.moveTo(this.x + 5, cy + wobble);
-      ctx.lineTo(this.x + this.w - 5, cy + wobble);
-      ctx.stroke();
       // Eyes
       ctx.fillStyle = '#ff4444';
       ctx.shadowColor = '#ff4444';
-      ctx.shadowBlur = 8;
+      ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.arc(cx - 6, cy + wobble, 3, 0, Math.PI * 2);
       ctx.fill();
@@ -395,6 +416,7 @@ class Player extends Entity {
     super(x, y, 40, 20);
     this.x = x; this.y = y;
     this.engineFlicker = 0;
+    this.shieldEnergy = 100;
   }
 
   move(dir, W) {
@@ -402,15 +424,21 @@ class Player extends Entity {
     this.x = Math.max(20, Math.min(W - 20, this.x + dir * speed));
   }
 
-  draw(ctx, frame) {
+  draw(ctx, frame, shieldRatio) {
     this.engineFlicker = frame;
 
-    // Shield glow
+    // Shield ring (color changes by energy level)
+    const shieldColor = shieldRatio > 0.6 ? '#00ffcc' : shieldRatio > 0.3 ? '#ffaa00' : '#ff4444';
     ctx.beginPath();
     ctx.arc(this.x, this.y, 28, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(0, 200, 255, 0.15)';
+    ctx.strokeStyle = shieldColor;
+    ctx.shadowColor = shieldColor;
+    ctx.shadowBlur = 12;
+    ctx.globalAlpha = 0.3 + shieldRatio * 0.4;
     ctx.lineWidth = 2;
     ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
 
     // Ship body
     ctx.fillStyle = '#00c8ff';
@@ -502,7 +530,6 @@ class Game {
     document.addEventListener('keyup', e => { this.keys[e.code] = false; });
 
     document.getElementById('overlay').style.display = 'flex';
-    // DO NOT auto-start — wait for button click
   }
 
   init() {
@@ -524,12 +551,27 @@ class Game {
     document.getElementById('s').textContent = '0';
     document.getElementById('lives').textContent = '3';
     document.getElementById('wave').textContent = '1';
+    this._updateShieldBar(100);
+  }
+
+  _updateShieldBar(ratio) {
+    const fill = document.getElementById('shield-fill');
+    fill.style.width = (ratio * 100) + '%';
+    if (ratio > 0.6) {
+      fill.style.background = '#00ffcc';
+      fill.style.boxShadow = '0 0 8px #00ffcc';
+    } else if (ratio > 0.3) {
+      fill.style.background = '#ffaa00';
+      fill.style.boxShadow = '0 0 8px #ffaa00';
+    } else {
+      fill.style.background = '#ff4444';
+      fill.style.boxShadow = '0 0 8px #ff4444';
+    }
   }
 
   _shoot() {
     if (this.gameOver) return;
     this.playerBullets.push(new Bullet(this.player.x, this.player.y - 20, 0, -12, true));
-    // Muzzle flash particles
     this.particles.push(new Particle(this.player.x, this.player.y - 20, '#00ffff', 5, 0.5));
   }
 
@@ -546,11 +588,9 @@ class Game {
     if (this.gameOver) return;
     this.frame++;
 
-    // Input
     if (this.keys['ArrowLeft'] || this.keys['KeyA']) this.player.move(-1, this.W);
     if (this.keys['ArrowRight'] || this.keys['KeyD']) this.player.move(1, this.W);
 
-    // Enemy movement
     const speed = 2 + this.wave;
     this.enemies.forEach(e => e.update(this.alienDir, this.alienDrop));
     this.alienDrop = 0;
@@ -561,10 +601,8 @@ class Game {
       this.alienDrop = 10;
     }
 
-    // Spawn descending enemy
     if (this.frame % Math.max(20, 70 - this.wave * 5) === 0) this._spawnEnemy();
 
-    // Enemy shoot
     this.alienShootTimer++;
     if (this.alienShootTimer > Math.max(30, 80 - this.wave * 5) && this.enemies.length > 0) {
       this.alienShootTimer = 0;
@@ -578,13 +616,11 @@ class Game {
       ));
     }
 
-    // Update bullets
     this.playerBullets.forEach(b => b.update(this.H));
     this.playerBullets = this.playerBullets.filter(b => b.alive);
     this.enemyBullets.forEach(b => b.update(this.H));
     this.enemyBullets = this.enemyBullets.filter(b => b.alive);
 
-    // Player bullets vs enemies
     for (let bi = this.playerBullets.length - 1; bi >= 0; bi--) {
       const b = this.playerBullets[bi];
       for (let ei = this.enemies.length - 1; ei >= 0; ei--) {
@@ -611,7 +647,6 @@ class Game {
     }
     this.enemies = this.enemies.filter(e => e.alive);
 
-    // Enemy bullets vs player
     for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
       const b = this.enemyBullets[i];
       if (Math.abs(b.x - this.player.x) < this.player.w / 2 &&
@@ -621,6 +656,7 @@ class Game {
         this.shieldEffects.push(new ShieldEffect(this.player.x, this.player.y));
         this.enemyBullets.splice(i, 1);
         document.getElementById('lives').textContent = this.lives;
+        this._updateShieldBar(this.lives / 3);
         if (this.lives <= 0) {
           this.gameOver = true;
           document.getElementById('overlay').querySelector('h1').textContent = '💥 游戏结束';
@@ -630,7 +666,6 @@ class Game {
       }
     }
 
-    // Wave clear
     if (this.enemies.length === 0) {
       this.wave++;
       document.getElementById('wave').textContent = this.wave;
@@ -642,7 +677,6 @@ class Game {
       this._spawnExplosion(this.W / 2, this.H / 2, '#00ff88', 50);
     }
 
-    // Particles
     this.particles.forEach(p => p.update());
     this.particles = this.particles.filter(p => p.alive);
     this.shieldEffects.forEach(s => s.update());
@@ -657,25 +691,15 @@ class Game {
 
     this.scene.draw(this.frame);
 
-    // Player
-    this.player.draw(ctx, this.frame);
+    const shieldRatio = this.lives / 3;
+    this.player.draw(ctx, this.frame, shieldRatio);
 
-    // Shield effects
     this.shieldEffects.forEach(s => s.draw(ctx));
-
-    // Player bullets
     this.playerBullets.forEach(b => b.draw(ctx));
-
-    // Enemy bullets
     this.enemyBullets.forEach(b => b.draw(ctx));
-
-    // Enemies
     this.enemies.forEach(e => e.draw(ctx));
-
-    // Particles
     this.particles.forEach(p => p.draw(ctx));
 
-    // HUD top bar
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     ctx.fillRect(0, 0, this.W, 4);
   }
