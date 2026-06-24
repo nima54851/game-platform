@@ -219,37 +219,73 @@ class Pipe {
   update(speed) { this.x -= speed; }
 
   draw(ctx, frame) {
+    // Metallic pipe gradient (side lighting)
     const g = ctx.createLinearGradient(this.x, 0, this.x + this.w, 0);
-    g.addColorStop(0, '#2d6a2d');
-    g.addColorStop(0.5, '#4a8a4a');
-    g.addColorStop(1, '#2d6a2d');
+    g.addColorStop(0, '#1a4a1a');
+    g.addColorStop(0.2, '#3a8a3a');
+    g.addColorStop(0.45, '#5acc5a');
+    g.addColorStop(0.7, '#3a8a3a');
+    g.addColorStop(1, '#1a4a1a');
 
-    // Top pipe
+    // Top pipe body
     ctx.fillStyle = g;
     ctx.fillRect(this.x, 0, this.w, this.gapY);
-    ctx.fillStyle = '#3aaa3a';
-    ctx.fillRect(this.x, this.gapY - 22, this.w, 22);
-    // Highlight
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.fillRect(this.x + 3, 0, 6, this.gapY - 22);
-    // Lip glow
+    // Metallic sheen highlight
+    ctx.fillStyle = 'rgba(180,255,180,0.15)';
+    ctx.fillRect(this.x + this.w * 0.3, 0, this.w * 0.15, this.gapY);
+    // Side shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(this.x + this.w - 5, 0, 5, this.gapY);
+    // Rivets
     ctx.fillStyle = '#5acc5a';
     ctx.shadowColor = '#5acc5a';
-    ctx.shadowBlur = 6;
-    ctx.fillRect(this.x - 2, this.gapY - 24, this.w + 4, 4);
+    ctx.shadowBlur = 3;
+    const rivetSpacing = 60;
+    for (let ry = 20; ry < this.gapY - 22; ry += rivetSpacing) {
+      ctx.beginPath(); ctx.arc(this.x + 8, ry, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(this.x + this.w - 8, ry, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    // Top pipe lip (cap)
+    ctx.fillStyle = '#3aaa3a';
+    ctx.fillRect(this.x - 3, this.gapY - 22, this.w + 6, 22);
+    // Lip metallic gradient
+    const lipG = ctx.createLinearGradient(this.x - 3, 0, this.x + this.w + 3, 0);
+    lipG.addColorStop(0, '#2a6a2a'); lipG.addColorStop(0.5, '#6acc6a'); lipG.addColorStop(1, '#2a6a2a');
+    ctx.fillStyle = lipG;
+    ctx.fillRect(this.x - 3, this.gapY - 22, this.w + 6, 18);
+    // Lip glow
+    ctx.fillStyle = '#7aff7a';
+    ctx.shadowColor = '#7aff7a';
+    ctx.shadowBlur = 8;
+    ctx.fillRect(this.x - 4, this.gapY - 26, this.w + 8, 5);
     ctx.shadowBlur = 0;
 
-    // Bottom pipe
+    // Bottom pipe body
     ctx.fillStyle = g;
     ctx.fillRect(this.x, this.gapY + this.gap, this.w, this.H - (this.gapY + this.gap));
-    ctx.fillStyle = '#3aaa3a';
-    ctx.fillRect(this.x, this.gapY + this.gap, this.w, 20);
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.fillRect(this.x + 3, this.gapY + this.gap + 20, 6, this.H);
+    ctx.fillStyle = 'rgba(180,255,180,0.15)';
+    ctx.fillRect(this.x + this.w * 0.3, this.gapY + this.gap, this.w * 0.15, this.H - (this.gapY + this.gap));
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(this.x + this.w - 5, this.gapY + this.gap, 5, this.H);
+    // Bottom rivets
     ctx.fillStyle = '#5acc5a';
     ctx.shadowColor = '#5acc5a';
-    ctx.shadowBlur = 6;
-    ctx.fillRect(this.x - 2, this.gapY + this.gap, this.w + 4, 4);
+    ctx.shadowBlur = 3;
+    for (let ry = this.gapY + this.gap + 30; ry < this.H; ry += rivetSpacing) {
+      ctx.beginPath(); ctx.arc(this.x + 8, ry, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(this.x + this.w - 8, ry, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    // Bottom pipe lip
+    ctx.fillStyle = '#3aaa3a';
+    ctx.fillRect(this.x - 3, this.gapY + this.gap, this.w + 6, 20);
+    ctx.fillStyle = lipG;
+    ctx.fillRect(this.x - 3, this.gapY + this.gap, this.w + 6, 16);
+    ctx.fillStyle = '#7aff7a';
+    ctx.shadowColor = '#7aff7a';
+    ctx.shadowBlur = 8;
+    ctx.fillRect(this.x - 4, this.gapY + this.gap, this.w + 8, 5);
     ctx.shadowBlur = 0;
   }
 
