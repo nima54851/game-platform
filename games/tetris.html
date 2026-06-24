@@ -1,8 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh"><head><meta charset="UTF-8"><title>🧱 俄罗斯方块</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 40px rgba(0,212,255,0.15)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:24px;color:#e2e8f0;font-size:15px;z-index:10}#ui span{background:rgba(0,0,0,0.5);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.08)}</style></head>
+<style>
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(6px)}
+#overlay h1{font-size:44px;color:#00d4ff;text-shadow:0 0 30px rgba(0,212,255,.7);margin-bottom:8px}
+#overlay p{color:rgba(255,255,255,.4);margin-bottom:24px;font-size:14px}
+#start-btn{background:#00d4ff;color:#000;padding:13px 46px;border:none;border-radius:12px;font-size:17px;font-weight:900;cursor:pointer;font-family:monospace;box-shadow:0 0 30px rgba(0,212,255,.4)}
+#start-btn:hover{transform:scale(1.04)}
+*{margin:0;padding:0;box-sizing:border-box}body{background:#050508;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 40px rgba(0,212,255,0.15)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:24px;color:#e2e8f0;font-size:15px;z-index:10}#ui span{background:rgba(0,0,0,0.5);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.08)}</style></head>
 <body>
 <div id="ui"><span>分数: <b id="s">0</b></span><span>最高: <b id="h">0</b></span><span>等级: <b id="lv">1</b></span></div>
+<div id="overlay">
+  <h1>🧱 俄罗斯方块</h1>
+  <p>← → 移动 · ↑/空格 旋转 · ↓ 加速下落</p>
+  <button id="start-btn">▶ 开始</button>
+</div>
 <canvas id="c"></canvas>
 <script>
 // ─── Scene Manager ───────────────────────────────────────────────
@@ -245,6 +256,10 @@ class Game {
     this.spawn();
 
     document.addEventListener('keydown', e => this.handleKey(e));
+    // Show start screen, wait for button
+    document.getElementById('overlay').style.display = 'flex';
+    document.getElementById('start-btn').addEventListener('click', () => this._doStart());
+    this._started = false;
     this.loop();
   }
 
@@ -334,6 +349,7 @@ class Game {
   }
 
   handleKey(e) {
+    if (!this._started) return;
     if (!this.playing) {
       if (e.key === 'r' || e.key === 'R') { this.initBoard(); this.score = 0; this.level = 1; this.nextPiece = null; this.spawn(); document.getElementById('s').textContent = 0; document.getElementById('lv').textContent = 1; }
       return;
@@ -468,7 +484,17 @@ class Game {
     ctx.fillText('分数: ' + this.score + ' · R重玩', this.W / 2, this.H / 2 + 20);
   }
 
+  _doStart() {
+    document.getElementById('overlay').style.display = 'none';
+    this._started = true;
+    this.initBoard();
+    this.score = 0; this.level = 1;
+    document.getElementById('s').textContent = '0';
+    document.getElementById('lv').textContent = '1';
+    this.spawn();
+  }
   loop() {
+    if (!this._started) { this.draw(); requestAnimationFrame(() => this.loop()); return; }
     this.update();
     requestAnimationFrame(() => this.loop());
   }
