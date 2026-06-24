@@ -1,14 +1,29 @@
 <!DOCTYPE html>
 <html lang="zh"><head><meta charset="UTF-8"><title>⚫ 五子棋</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}
+<style>
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:30;backdrop-filter:blur(6px)}
+#overlay h1{font-size:44px;color:#e2e8f0;margin-bottom:8px}
+#overlay p{color:rgba(255,255,255,.4);margin-bottom:24px;font-size:14px}
+#start-btn{background:#e2e8f0;color:#000;padding:13px 46px;border:none;border-radius:12px;font-size:17px;font-weight:900;cursor:pointer;font-family:monospace}
+#start-btn:hover{transform:scale(1.04)}
+*{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0e1a;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}
-canvas{border-radius:8px;box-shadow:0 0 30px rgba(0,0,0,0.5)}
+canvas#bg3d{position:fixed;inset:0;z-index:0;pointer-events:none}
+canvas#c{border-radius:8px;box-shadow:0 0 30px rgba(0,0,0,0.5);position:relative;z-index:1}
 #ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:16px;z-index:10;display:flex;gap:20px;align-items:center}
 #ui span{background:rgba(255,255,255,0.05);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)}
 .stone{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:4px}
 .stone.black{background:radial-gradient(circle at 30% 30%,#555,#111)}
 .stone.white{background:radial-gradient(circle at 30% 30%,#fff,#ccc)}
-</style></head><body>
+</style>
+<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+</head><body>
+<div id="overlay">
+  <h1>⚫ 五子棋</h1>
+  <p>点击棋盘落子 · 先连成5个获胜</p>
+  <button id="start-btn">▶ 开始</button>
+</div>
+<canvas id="bg3d"></canvas>
 <div id="ui">
   <span id="turn"><span class="stone black"></span>黑棋先行</span>
   <span id="info"></span>
@@ -16,6 +31,77 @@ canvas{border-radius:8px;box-shadow:0 0 30px rgba(0,0,0,0.5)}
 </div>
 <canvas id="c"></canvas>
 <script>
+try {
+// ═══════════════════════════════════════════════════════════
+//  THREE.JS BACKGROUND
+// ═══════════════════════════════════════════════════════════
+const bgCanvas = document.getElementById('bg3d');
+const renderer3d = new THREE.WebGLRenderer({ canvas: bgCanvas, alpha: true, antialias: true });
+renderer3d.setSize(window.innerWidth, window.innerHeight);
+renderer3d.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const scene3d = new THREE.Scene();
+const camera3d = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera3d.position.set(0, 5, 20);
+camera3d.lookAt(0, 0, 0);
+
+// 3D Grid Lines
+function makeGridLines() {
+  const lines = [];
+  for (let i = -8; i <= 8; i++) {
+    const mat = new THREE.LineBasicMaterial({ color: 0x3a2a2a, transparent: true, opacity: 0.4 });
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(i * 1.2, -15, -1),
+      new THREE.Vector3(i * 1.2, 15, -1)
+    ]);
+    lines.push(new THREE.Line(geo, mat));
+  }
+  for (let i = -8; i <= 8; i++) {
+    const mat = new THREE.LineBasicMaterial({ color: 0x3a2a2a, transparent: true, opacity: 0.4 });
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-15, i * 1.2, -1),
+      new THREE.Vector3(15, i * 1.2, -1)
+    ]);
+    lines.push(new THREE.Line(geo, mat));
+  }
+  return lines;
+}
+const gridLines3d = makeGridLines();
+gridLines3d.forEach(l => scene3d.add(l));
+
+// Floating ambient spheres
+const spheres = [];
+for (let i = 0; i < 15; i++) {
+  const geo = new THREE.SphereGeometry(0.08 + Math.random() * 0.12, 8, 8);
+  const mat = new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? 0x5a2a2a : 0x2a5a2a, transparent: true, opacity: 0.4 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 20, -2);
+  mesh.userData = { speed: 0.005 + Math.random() * 0.01, phase: Math.random() * Math.PI * 2 };
+  scene3d.add(mesh);
+  spheres.push(mesh);
+}
+
+let bgT = 0;
+function animateBg3d() {
+  bgT += 0.01;
+  camera3d.position.x = Math.sin(bgT * 0.3) * 2;
+  camera3d.position.y = 5 + Math.sin(bgT * 0.2) * 1;
+  camera3d.lookAt(0, 0, 0);
+  spheres.forEach(s => {
+    s.position.y += s.userData.speed;
+    s.position.x += Math.sin(bgT + s.userData.phase) * 0.003;
+    if (s.position.y > 12) s.position.y = -12;
+  });
+  renderer3d.render(scene3d, camera3d);
+  requestAnimationFrame(animateBg3d);
+}
+animateBg3d();
+
+window.addEventListener('resize', () => {
+  camera3d.aspect = window.innerWidth / window.innerHeight;
+  camera3d.updateProjectionMatrix();
+  renderer3d.setSize(window.innerWidth, window.innerHeight);
+});
+
 // ═══════════════════════════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════════════════════════
@@ -30,81 +116,74 @@ canvas.width = W; canvas.height = H;
 // ═══════════════════════════════════════════════════════════
 //  ENTITY CLASSES
 // ═══════════════════════════════════════════════════════════
-
 class Stone {
   constructor(row, col, player) {
-    this.row = row; this.col = col;
-    this.player = player; // 'B' | 'W'
-    this.x = PAD + col * CELL;
-    this.y = PAD + row * CELL;
-    this.scale = 0; // for animation
-    this.targetScale = 1;
+    this.row = row; this.col = col; this.player = player;
+    this.x = PAD + col * CELL; this.y = PAD + row * CELL;
+    this.scale = 0; this.targetScale = 1; this.rotationAngle = 0;
   }
-
   tick() {
     this.scale += (this.targetScale - this.scale) * 0.3;
+    this.rotationAngle += 0.05 * (1 - this.scale);
   }
-
   draw() {
     const r = CELL * 0.42 * this.scale;
     if (r < 0.5) return;
-    const g = ctx.createRadialGradient(this.x - 3, this.y - 3, 0, this.x, this.y, r);
-    if (this.player === 'B') {
-      g.addColorStop(0, '#666'); g.addColorStop(1, '#111');
-    } else {
-      g.addColorStop(0, '#fff'); g.addColorStop(1, '#ccc');
-    }
-    ctx.shadowColor = this.player === 'B' ? '#555' : '#fff';
-    ctx.shadowBlur = 8;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.shadowColor = this.player === 'B' ? '#555' : '#fff'; ctx.shadowBlur = 8;
+    const g = ctx.createRadialGradient(-3, -3, 0, 0, 0, r);
+    if (this.player === 'B') { g.addColorStop(0, '#888'); g.addColorStop(1, '#111'); }
+    else { g.addColorStop(0, '#fff'); g.addColorStop(1, '#ccc'); }
     ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = this.player === 'B' ? '#333' : '#999';
-    ctx.lineWidth = 0.5;
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = this.player === 'B' ? '#333' : '#999'; ctx.lineWidth = 0.5; ctx.stroke();
     ctx.shadowBlur = 0;
+    ctx.restore();
   }
 }
 
 class Particle {
   constructor(x, y, color) {
     this.x = x; this.y = y; this.color = color;
-    const a = Math.random() * Math.PI * 2;
-    const sp = 2 + Math.random() * 4;
+    const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 4;
     this.vx = Math.cos(a) * sp; this.vy = Math.sin(a) * sp;
-    this.life = 1; this.decay = 0.03;
-    this.r = 2 + Math.random() * 3;
+    this.life = 1; this.decay = 0.03; this.r = 2 + Math.random() * 3;
   }
-
-  tick() {
-    this.x += this.vx; this.y += this.vy;
-    this.vx *= 0.92; this.vy *= 0.92;
-    this.life -= this.decay;
-  }
-
+  tick() { this.x += this.vx; this.y += this.vy; this.vx *= 0.92; this.vy *= 0.92; this.life -= this.decay; }
   draw() {
     ctx.globalAlpha = this.life;
-    ctx.fillStyle = this.color;
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.r * this.life, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.fillStyle = this.color; ctx.shadowColor = this.color; ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.r * this.life, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
   }
+}
+
+class BurstParticle {
+  constructor(x, y, color) {
+    this.x = x; this.y = y; this.color = color;
+    const a = Math.random() * Math.PI * 2, sp = 5 + Math.random() * 8;
+    this.vx = Math.cos(a) * sp; this.vy = Math.sin(a) * sp;
+    this.life = 1; this.decay = 0.012 + Math.random() * 0.012; this.r = 1.5 + Math.random() * 2.5;
+  }
+  tick() { this.x += this.vx; this.y += this.vy; this.vy += 0.08; this.vx *= 0.97; this.life -= this.decay; }
+  draw() {
+    ctx.globalAlpha = this.life;
+    ctx.fillStyle = this.color; ctx.shadowColor = this.color; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.r * this.life, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  }
+  isDead() { return this.life <= 0; }
 }
 
 // ═══════════════════════════════════════════════════════════
 //  GAME STATE
 // ═══════════════════════════════════════════════════════════
-let board, currentPlayer, gameOver, stones, particles, winLine;
+let board, currentPlayer, gameOver, stones, particles, burstParticles, winLine;
 
 function init() {
   board = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
-  currentPlayer = 'B';
-  gameOver = false;
-  stones = [];
-  particles = [];
-  winLine = null;
+  currentPlayer = 'B'; gameOver = false; stones = []; particles = []; burstParticles = []; winLine = null;
   updateUI();
 }
 
@@ -115,92 +194,63 @@ function updateUI() {
   document.getElementById('info').textContent = '';
 }
 
-function burst(x, y, color, count) {
-  for (let i = 0; i < count; i++) particles.push(new Particle(x, y, color));
-}
+function burst(x, y, color, count) { for (let i = 0; i < count; i++) particles.push(new Particle(x, y, color)); }
+function burstHeavy(x, y, color, count) { for (let i = 0; i < count; i++) burstParticles.push(new BurstParticle(x, y, color)); }
 
 // ═══════════════════════════════════════════════════════════
 //  RENDER
 // ═══════════════════════════════════════════════════════════
 function drawBackground() {
-  ctx.fillStyle = '#1a0d0d'; ctx.fillRect(0, 0, W, H);
+  // Wood grain with gradient
+  const woodGrad = ctx.createLinearGradient(0, 0, W, H);
+  woodGrad.addColorStop(0, '#1a0d0d'); woodGrad.addColorStop(0.5, '#1e0e0e'); woodGrad.addColorStop(1, '#1a0d0d');
+  ctx.fillStyle = woodGrad; ctx.fillRect(0, 0, W, H);
 
-  // Wood grain texture
-  ctx.strokeStyle = 'rgba(80,40,20,0.1)';
-  ctx.lineWidth = 1;
-  for (let y = 0; y < H; y += 4) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-  }
+  ctx.strokeStyle = 'rgba(80,40,20,0.1)'; ctx.lineWidth = 1;
+  for (let y = 0; y < H; y += 4) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
 
-  // Grid
   ctx.strokeStyle = '#3a2a2a'; ctx.lineWidth = 1;
   for (let i = 0; i < SIZE; i++) {
-    ctx.beginPath();
-    ctx.moveTo(PAD + i * CELL, PAD);
-    ctx.lineTo(PAD + i * CELL, PAD + (SIZE - 1) * CELL);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(PAD, PAD + i * CELL);
-    ctx.lineTo(PAD + (SIZE - 1) * CELL, PAD + i * CELL);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD + i * CELL, PAD); ctx.lineTo(PAD + i * CELL, PAD + (SIZE - 1) * CELL); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(PAD, PAD + i * CELL); ctx.lineTo(PAD + (SIZE - 1) * CELL, PAD + i * CELL); ctx.stroke();
   }
 
-  // Star points
   const stars = [[3, 3], [3, 11], [7, 7], [11, 3], [11, 11]];
   stars.forEach(([r, c]) => {
     ctx.fillStyle = '#5a3a3a';
-    ctx.beginPath();
-    ctx.arc(PAD + c * CELL, PAD + r * CELL, 4, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(PAD + c * CELL, PAD + r * CELL, 4, 0, Math.PI * 2); ctx.fill();
   });
 
-  // Last move marker
   if (stones.length > 0) {
     const last = stones[stones.length - 1];
-    ctx.strokeStyle = last.player === 'B' ? '#ff4444' : '#4488ff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, CELL * 0.15, 0, Math.PI * 2);
-    ctx.stroke();
+    ctx.strokeStyle = last.player === 'B' ? '#ff4444' : '#4488ff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(last.x, last.y, CELL * 0.15, 0, Math.PI * 2); ctx.stroke();
   }
 
-  // Win line
   if (winLine) {
     const [r1, c1, r2, c2] = winLine;
-    ctx.strokeStyle = '#ffd700';
-    ctx.lineWidth = 3;
-    ctx.shadowColor = '#ffd700';
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.moveTo(PAD + c1 * CELL, PAD + r1 * CELL);
-    ctx.lineTo(PAD + c2 * CELL, PAD + r2 * CELL);
-    ctx.stroke();
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 4;
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 15;
+    ctx.beginPath(); ctx.moveTo(PAD + c1 * CELL, PAD + r1 * CELL); ctx.lineTo(PAD + c2 * CELL, PAD + r2 * CELL); ctx.stroke();
     ctx.shadowBlur = 0;
   }
 }
 
 function draw() {
   drawBackground();
-
-  // Animate stones
   stones.forEach(s => { s.tick(); s.draw(); });
-
-  // Particles
   particles.forEach(p => { p.tick(); p.draw(); });
   particles = particles.filter(p => p.life > 0);
+  burstParticles.forEach(p => { p.tick(); p.draw(); });
+  burstParticles = burstParticles.filter(p => !p.isDead());
 
-  // Game over overlay
   if (gameOver) {
     ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
-    const winnerColor = currentPlayer === 'B' ? '#fff' : '#111';
-    ctx.fillStyle = '#ffd700';
-    ctx.font = 'bold 28px monospace';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffd700'; ctx.font = 'bold 28px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 15;
     ctx.fillText(`${currentPlayer === 'B' ? '⚫' : '⚪'} 五子连珠获胜!`, W / 2, H / 2);
     ctx.shadowBlur = 0;
   }
-
   requestAnimationFrame(draw);
 }
 
@@ -210,18 +260,9 @@ function draw() {
 function checkWin(r, c) {
   const dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
   for (const [dr, dc] of dirs) {
-    let count = 1;
-    let r1 = r, c1 = c, r2 = r, c2 = c;
-    for (let i = 1; i < 5; i++) {
-      const nr = r + dr * i, nc = c + dc * i;
-      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === currentPlayer) { count++; r2 = nr; c2 = nc; }
-      else break;
-    }
-    for (let i = 1; i < 5; i++) {
-      const nr = r - dr * i, nc = c - dc * i;
-      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === currentPlayer) { count++; r1 = nr; c1 = nc; }
-      else break;
-    }
+    let count = 1, r1 = r, c1 = c, r2 = r, c2 = c;
+    for (let i = 1; i < 5; i++) { const nr = r + dr * i, nc = c + dc * i; if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === currentPlayer) { count++; r2 = nr; c2 = nc; } else break; }
+    for (let i = 1; i < 5; i++) { const nr = r - dr * i, nc = c - dc * i; if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === currentPlayer) { count++; r1 = nr; c1 = nc; } else break; }
     if (count >= 5) { winLine = [r1, c1, r2, c2]; return true; }
   }
   return false;
@@ -239,22 +280,26 @@ canvas.addEventListener('click', e => {
   const stone = new Stone(row, col, currentPlayer);
   stones.push(stone);
   burst(stone.x, stone.y, currentPlayer === 'B' ? '#555' : '#fff', 8);
+  burstHeavy(stone.x, stone.y, currentPlayer === 'B' ? '#888' : '#ffffff', 6);
 
   if (checkWin(row, col)) {
     gameOver = true;
-    const winnerText = currentPlayer === 'B' ? '⚫ 黑棋' : '⚪ 白棋';
-    document.getElementById('info').textContent = `${winnerText} 五连!`;
+    document.getElementById('info').textContent = `${currentPlayer === 'B' ? '⚫ 黑棋' : '⚪ 白棋'} 五连!`;
     burst(stone.x, stone.y, '#ffd700', 30);
+    burstHeavy(stone.x, stone.y, '#ffaa00', 25);
   } else {
     currentPlayer = currentPlayer === 'B' ? 'W' : 'B';
     updateUI();
   }
 });
 
-function reset() {
-  init(); draw();
-}
+function reset() { init(); draw(); }
 
-draw();
-init();
+// Start paused
+document.getElementById("start-btn").addEventListener("click", function() {
+  document.getElementById("overlay").style.display = "none";
+  init();
+});
+draw(); init();
+} catch(e) { console.error(e); }
 </script></body></html>
