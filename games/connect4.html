@@ -25,6 +25,7 @@ canvas{display:block;border-radius:16px}
 <canvas id="c"></canvas>
 <div id="msg"></div>
 <script>
+try {
 // ============================================================
 // CLASSES
 // ============================================================
@@ -36,7 +37,7 @@ class Disc {
     this.settled = false; this.settledAt = 0;
   }
   get color() { return this.player === R1 ? '#ff4444' : '#ffca28'; }
-  get glowColor() { return this.player === R1 ? '#ff8888' : '#ffee88'; }
+  get glowColor() { return this.player === R1 ? '#ff9999' : '#ffee88'; }
   startDrop(targetY) {
     this.dropped = true; this.dropTarget = targetY; this.y = -this.w;
     this.dropProgress = 0;
@@ -44,11 +45,12 @@ class Disc {
   update() {
     if (this.dropped && !this.settled) {
       this.dropProgress += 0.08;
-      if (this.dropProgress >= 1) { this.dropProgress = 1; this.y = this.dropTarget; this.settled = true; this.settledAt = 0; }
-      else {
-        // Bounce effect
+      if (this.dropProgress >= 1) {
+        this.dropProgress = 1; this.y = this.dropTarget; this.settled = true; this.settledAt = 0;
+      } else {
+        // Bounce easing
         const t = this.dropProgress;
-        const bounce = t < 0.7 ? t / 0.7 : 1 - (t - 0.7) / 0.3 * 0.3;
+        const bounce = t < 0.65 ? t / 0.65 : 1 - Math.pow(t - 0.65, 2) / (0.35 * 0.35) * 0.35;
         this.y = -this.w + (this.dropTarget + this.w) * bounce;
       }
     }
@@ -56,15 +58,22 @@ class Disc {
   }
   draw(ctx) {
     const r = this.w / 2 - 2;
-    const g = ctx.createRadialGradient(this.x - r * 0.3, this.y - r * 0.3, 0, this.x, this.y, r);
-    g.addColorStop(0, this.glowColor); g.addColorStop(1, this.color);
-    ctx.shadowColor = this.color; ctx.shadowBlur = this.settled ? 10 : 5;
+    // Radial gradient for metallic sheen
+    const g = ctx.createRadialGradient(this.x - r * 0.3, this.y - r * 0.35, 0, this.x, this.y, r);
+    g.addColorStop(0, this.glowColor);
+    g.addColorStop(0.5, this.color);
+    g.addColorStop(1, this.player === R1 ? '#880000' : '#886600');
+    // Shadow
+    ctx.shadowColor = this.color; ctx.shadowBlur = this.settled ? 14 : 7;
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(this.x, this.y, r, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0;
-    // Shine
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath(); ctx.arc(this.x - r * 0.3, this.y - r * 0.3, r * 0.2, 0, Math.PI * 2); ctx.fill();
+    // Specular highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.38)';
+    ctx.beginPath(); ctx.arc(this.x - r * 0.32, this.y - r * 0.35, r * 0.22, 0, Math.PI * 2); ctx.fill();
+    // Secondary tiny highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.beginPath(); ctx.arc(this.x + r * 0.15, this.y + r * 0.2, r * 0.1, 0, Math.PI * 2); ctx.fill();
   }
   isSettled() { return this.settled && this.settledAt > 5; }
 }
@@ -94,18 +103,23 @@ class WinLine {
   constructor(r1, c1, r2, c2, discW, slotW, padX, padY, cellH) {
     this.r1 = r1; this.c1 = c1; this.r2 = r2; this.c2 = c2;
     this.progress = 0;
-    const x1 = padX + c1 * (slotW) + discW / 2;
+    const x1 = padX + c1 * slotW + discW / 2;
     const y1 = padY + r1 * cellH + discW / 2;
-    const x2 = padX + c2 * (slotW) + discW / 2;
+    const x2 = padX + c2 * slotW + discW / 2;
     const y2 = padY + r2 * cellH + discW / 2;
     this.x1 = x1; this.y1 = y1; this.x2 = x2; this.y2 = y2;
   }
-  update() { this.progress = Math.min(1, this.progress + 0.03); }
+  update() { this.progress = Math.min(1, this.progress + 0.035); }
   draw(ctx) {
     const ex = this.x1 + (this.x2 - this.x1) * this.progress;
     const ey = this.y1 + (this.y2 - this.y1) * this.progress;
-    ctx.strokeStyle = '#ffffff'; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 20;
-    ctx.lineWidth = 5; ctx.lineCap = 'round';
+    // Glow aura
+    ctx.strokeStyle = '#ffffff'; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 25;
+    ctx.lineWidth = 8; ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.25;
+    ctx.beginPath(); ctx.moveTo(this.x1, this.y1); ctx.lineTo(ex, ey); ctx.stroke();
+    // Core
+    ctx.globalAlpha = 1; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.moveTo(this.x1, this.y1); ctx.lineTo(ex, ey); ctx.stroke();
     ctx.shadowBlur = 0; ctx.lineCap = 'butt';
   }
@@ -137,7 +151,6 @@ function updateTurnUI() {
 
 function drop(col) {
   if (over) return;
-  // Find drop row
   let dropRow = -1;
   for (let r = ROWS - 1; r >= 0; r--) { if (grid[r][col] === EMPTY) { dropRow = r; break; } }
   if (dropRow === -1) return;
@@ -155,22 +168,19 @@ function update() {
   if (winLine) winLine.update();
   particles.forEach(p => p.update());
   particles = particles.filter(p => !p.isDead());
-  // Check win after discs settle
   if (allSettled && !over && lastDisc && lastDisc.isSettled()) {
     const w = checkWin(lastDisc.row, lastDisc.col);
     if (w) {
       over = true;
       const winner = cur === R1 ? '🔴 红' : '🟡 黄';
       document.getElementById('msg').textContent = '🎉 ' + winner + '方获胜！';
-      // Win animation
       const [r1, c1] = w; const [r2, c2] = [w[0] + w[2] * 3, w[1] + w[3] * 3];
       winLine = new WinLine(r1, c1, r2, c2, DISC_W, SLOT_W, PAD_X, PAD_Y, CELL_SIZE);
-      // Celebration particles
-      for (let i = 0; i < 40; i++) {
+      for (let i = 0; i < 50; i++) {
         particles.push(new Particle(CW / 2 + (Math.random() - 0.5) * CW, CH / 2, lastDisc.color));
+        particles.push(new Particle(CW / 2 + (Math.random() - 0.5) * CW, CH / 2, '#ffffff'));
       }
     } else {
-      // Check draw
       if (ROWS * COLS - grid.flat().filter(v => v === EMPTY).length === 0) {
         over = true; document.getElementById('msg').textContent = '🤝 平局！';
       } else {
@@ -183,8 +193,7 @@ function update() {
 function checkWin(r, c) {
   const dirs = [[0, 1, 0, 1], [1, 0, 1, 0], [1, 1, 1, 1], [1, -1, 1, -1]];
   for (const [dr, dc, dr2, dc2] of dirs) {
-    let count = 1;
-    let r1 = r, c1 = c, r2 = r, c2 = c;
+    let count = 1, r1 = r, c1 = c, r2 = r, c2 = c;
     for (let k = 1; k < 4; k++) {
       const nr = r + dr * k, nc = c + dc * k;
       if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === cur) { count++; r2 = nr; c2 = nc; } else break;
@@ -199,38 +208,53 @@ function checkWin(r, c) {
 }
 
 function draw() {
-  // Board background with blue gradient
-  const bg = ctx.createLinearGradient(0, 0, 0, CH);
-  bg.addColorStop(0, '#1a1a5a'); bg.addColorStop(1, '#0d0d2a');
-  ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(0, 0, CW, CH, 16); ctx.fill();
-  // Board border
-  ctx.strokeStyle = 'rgba(100,100,200,.3)'; ctx.lineWidth = 2;
-  ctx.stroke();
-  // Cell slots
+  // Deep blue metallic board background
+  const bg = ctx.createRadialGradient(CW / 2, CH / 2, 0, CW / 2, CH / 2, Math.max(CW, CH));
+  bg.addColorStop(0, '#1a2a6a');
+  bg.addColorStop(0.5, '#0d1540');
+  bg.addColorStop(1, '#060920');
+  ctx.fillStyle = bg;
+  ctx.beginPath(); ctx.roundRect(0, 0, CW, CH, 16); ctx.fill();
+
+  // Board metallic rim
+  const rim = ctx.createLinearGradient(0, 0, CW, CH);
+  rim.addColorStop(0, 'rgba(80,120,255,0.5)');
+  rim.addColorStop(0.5, 'rgba(40,60,180,0.3)');
+  rim.addColorStop(1, 'rgba(80,120,255,0.5)');
+  ctx.strokeStyle = rim; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(1, 1, CW - 2, CH - 2, 16); ctx.stroke();
+
+  // Cell slots with depth shadow
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
     const sx = PAD_X + c * SLOT_W, sy = PAD_Y + r * CELL_SIZE;
-    ctx.fillStyle = 'rgba(0,0,0,.5)';
-    ctx.beginPath(); ctx.arc(sx + DISC_W / 2, sy + DISC_W / 2, DISC_W / 2 - 3, 0, Math.PI * 2); ctx.fill();
+    // Slot hole shadow
+    ctx.fillStyle = 'rgba(0,0,20,0.7)';
+    ctx.beginPath(); ctx.arc(sx + DISC_W / 2, sy + DISC_W / 2, DISC_W / 2 - 2, 0, Math.PI * 2); ctx.fill();
+    // Slot rim
+    ctx.strokeStyle = 'rgba(60,80,200,0.4)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(sx + DISC_W / 2, sy + DISC_W / 2, DISC_W / 2 - 2, 0, Math.PI * 2); ctx.stroke();
   }
+
   // Discs
   discQueue.forEach(d => d.draw(ctx));
-  // Win line
+
+  // Win line (glowing)
   if (winLine) winLine.draw(ctx);
+
   // Particles
   particles.forEach(p => p.draw(ctx));
+
   // Hover column highlight
   if (!over) {
     const hoverCol = getHoverCol();
     if (hoverCol >= 0) {
-      for (let r = 0; r < ROWS; r++) {
-        if (grid[r][hoverCol] === EMPTY) {
-          const sx = PAD_X + hoverCol * SLOT_W;
-          ctx.strokeStyle = cur === R1 ? 'rgba(255,100,100,.4)' : 'rgba(255,200,100,.4)';
-          ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(sx + DISC_W / 2, PAD_Y + r * CELL_SIZE + DISC_W / 2, DISC_W / 2 - 3, 0, Math.PI * 2); ctx.stroke();
-          break;
-        }
-      }
+      const sx = PAD_X + hoverCol * SLOT_W;
+      ctx.strokeStyle = cur === R1 ? 'rgba(255,80,80,0.6)' : 'rgba(255,200,80,0.6)';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = cur === R1 ? '#ff4444' : '#ffcc00';
+      ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.arc(sx + DISC_W / 2, PAD_Y - DISC_W / 2 - 6, DISC_W / 2 - 4, 0, Math.PI * 2); ctx.stroke();
+      ctx.shadowBlur = 0;
     }
   }
 }
@@ -256,11 +280,13 @@ function reset() { init(); }
 var started = false;
 function loop() {
   if (!started) { draw(); requestAnimationFrame(loop); return; }
- { update(); draw(); requestAnimationFrame(loop); }
-// Start paused, shows overlay
+  update(); draw(); requestAnimationFrame(loop);
+}
 document.getElementById("start-btn").addEventListener("click", function() {
-  document.getElementById("overlay").style.display = "none";
+  document.getElementById("overlay").style.display = 'none';
   started = true; init();
 });
 draw(); init();
+loop();
+} catch(e) { console.error(e); }
 </script></body></html>
