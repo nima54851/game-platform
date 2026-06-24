@@ -67,7 +67,6 @@ import { RenderPass }       from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass }  from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass }       from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader }       from 'three/addons/shaders/FXAAShader.js';
-import { SSAOPass }         from 'three/addons/postprocessing/SSAOPass.js';
 
 // ═══════════════════════════════════════════════════════════
 //  WEBGL CHECK
@@ -101,21 +100,16 @@ document.body.appendChild(renderer.domElement);
 const scene  = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 800);
 
-// ── Post-processing ──────────────────────────────────────
+// ── Post-processing (skip SSAOPass if unsupported) ────────────
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-
-// SSAO — ambient occlusion depth
-const ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
-ssaoPass.kernelRadius = 16; ssaoPass.minDistance = 0.005; ssaoPass.maxDistance = 0.1;
-composer.addPass(ssaoPass);
 
 // Bloom — glow on bright objects
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
   0.45, 0.35, 0.82
 );
-composer.addPass(bloomPass);
+try { composer.addPass(bloomPass); } catch(e) { console.warn('Bloom failed:', e); }
 
 // Color grading — contrast + saturation + vignette
 const colorGradingShader = {
@@ -140,12 +134,14 @@ const colorGradingShader = {
       gl_FragColor=color;
     }`
 };
-composer.addPass(new ShaderPass(colorGradingShader));
+try { composer.addPass(new ShaderPass(colorGradingShader)); } catch(e) { console.warn('ColorGrading failed:', e); }
 
 // FXAA — final anti-aliasing
-const fxaaPass = new ShaderPass(FXAAShader);
-fxaaPass.uniforms['resolution'].value.set(1/window.innerWidth, 1/window.innerHeight);
-composer.addPass(fxaaPass);
+try {
+  const fxaaPass = new ShaderPass(FXAAShader);
+  fxaaPass.uniforms['resolution'].value.set(1/window.innerWidth, 1/window.innerHeight);
+  composer.addPass(fxaaPass);
+} catch(e) { console.warn('FXAA failed:', e); }
 
 // ── Lighting (4-light rig) ───────────────────────────────
 const sunLight = new THREE.DirectionalLight(0xfff0dd, 2.5);
@@ -805,11 +801,14 @@ function showOver(){
 //  RENDER LOOP
 // ═══════════════════════════════════════════════════════════
 const clock=new THREE.Clock();
+let _loopActive=false;
 function loop(){
   requestAnimationFrame(loop);
-  const dt=clock.getDelta();
-  update();
-  composer.render();
+  try {
+    const dt=clock.getDelta();
+    update();
+    composer.render();
+  } catch(e) { console.error('Render error:', e); }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -818,16 +817,16 @@ function loop(){
 function start(){
   document.getElementById('overlay').style.display='none';
   document.getElementById('overlay').querySelector('h1').textContent='✈️ 3D空战';
-  init();loop();
+  init();
+  if(!_loopActive){ _loopActive=true; loop(); }
 }
 window.addEventListener('resize',()=>{
   const w=window.innerWidth,h=window.innerHeight;
   renderer.setSize(w,h);
   camera.aspect=w/h;camera.updateProjectionMatrix();
   composer.setSize(w,h);
-  ssaoPass.setSize(w,h);
-  bloomPass.resolution.set(w,h);
-  fxaaPass.uniforms['resolution'].value.set(1/w,1/h);
+  try { bloomPass.resolution.set(w,h); } catch(e){}
+  try { fxaaPass.uniforms['resolution'].value.set(1/w,1/h); } catch(e){}
 });
 init();loop();
 </script></body></html>
