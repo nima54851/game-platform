@@ -3,56 +3,246 @@
 <title>🔴 四子棋 Connect4</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}
 body{background:radial-gradient(ellipse at top,#0a0a1a,#050510);display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;color:#fff}
-#board{display:grid;grid-template-columns:repeat(7,56px);gap:6px;padding:20px;background:linear-gradient(180deg,#1a1a3a,#0d0d1a);border-radius:16px;border:2px solid rgba(100,100,200,.2);box-shadow:0 0 40px rgba(0,0,100,.4)}
-.col{width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.4);border:none;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;font-size:28px}
-.col:hover{background:rgba(0,200,255,.1);transform:scale(1.05)}
-.slot{width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,.6);transition:all .3s;display:flex;align-items:center;justify-content:center;font-size:26px;
-  box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
-.slot.r1{background:linear-gradient(135deg,#ff4444,#cc0000);box-shadow:inset 0 2px 4px rgba(0,0,0,.5),0 0 12px rgba(255,0,0,.3)}
-.slot.r2{background:linear-gradient(135deg,#ffca28,#ff8800);box-shadow:inset 0 2px 4px rgba(0,0,0,.5),0 0 12px rgba(255,200,0,.3)}
 #hud{display:flex;gap:30px;margin-bottom:16px;align-items:center}
 #turn{font-size:20px;font-weight:700;padding:6px 20px;border-radius:20px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1)}
 #reset{background:rgba(0,200,255,.1);border:1px solid rgba(0,200,255,.3);color:#00c8ff;padding:8px 24px;border-radius:8px;cursor:pointer;font-family:monospace;font-size:14px;font-weight:700;transition:all .2s}
 #reset:hover{background:rgba(0,200,255,.2)}
 #msg{font-size:16px;color:#ffca28;min-height:24px;margin-top:12px;text-shadow:0 0 10px rgba(255,200,0,.5)}
+canvas{display:block;border-radius:16px}
 </style></head><body>
 <div id="hud"><div id="turn">🔴 红方先手</div><button id="reset" onclick="reset()">↺ 重来</button></div>
-<div id="board"></div>
+<canvas id="c"></canvas>
 <div id="msg"></div>
 <script>
-const ROWS=6,COLS=7,EMPTY=0,R1=1,R2=2;
-let grid,cur,over;
-function init(){grid=Array.from({length:ROWS},()=>Array(COLS).fill(EMPTY));cur=R1;over=false;document.getElementById('msg').textContent='';draw();}
-function draw(){
-  const b=document.getElementById('board');b.innerHTML='';
-  const icon=(v)=>v===R1?'🔴':v===R2?'🟡':'';
-  const cls=(v)=>v===R1?'r1':v===R2?'r2':'';
-  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-    const slot=document.createElement('div');slot.className='slot '+cls(grid[r][c]);slot.textContent=icon(grid[r][c]);
-    slot.style.animation=`drop .3s ease`;b.appendChild(slot);}
-  document.getElementById('turn').textContent=(cur===R1?'🔴':'🟡')+' '+(cur===R1?'红':'黄')+'方手';
-  document.getElementById('turn').style.color=cur===R1?'#ff6666':'#ffca28';
+// ============================================================
+// CLASSES
+// ============================================================
+class Disc {
+  constructor(row, col, player, x, y, w) {
+    this.row = row; this.col = col; this.player = player;
+    this.x = x; this.y = y; this.w = w;
+    this.dropped = false; this.dropProgress = 0; this.dropTarget = y;
+    this.settled = false; this.settledAt = 0;
+  }
+  get color() { return this.player === R1 ? '#ff4444' : '#ffca28'; }
+  get glowColor() { return this.player === R1 ? '#ff8888' : '#ffee88'; }
+  startDrop(targetY) {
+    this.dropped = true; this.dropTarget = targetY; this.y = -this.w;
+    this.dropProgress = 0;
+  }
+  update() {
+    if (this.dropped && !this.settled) {
+      this.dropProgress += 0.08;
+      if (this.dropProgress >= 1) { this.dropProgress = 1; this.y = this.dropTarget; this.settled = true; this.settledAt = 0; }
+      else {
+        // Bounce effect
+        const t = this.dropProgress;
+        const bounce = t < 0.7 ? t / 0.7 : 1 - (t - 0.7) / 0.3 * 0.3;
+        this.y = -this.w + (this.dropTarget + this.w) * bounce;
+      }
+    }
+    if (this.settled) this.settledAt++;
+  }
+  draw(ctx) {
+    const r = this.w / 2 - 2;
+    const g = ctx.createRadialGradient(this.x - r * 0.3, this.y - r * 0.3, 0, this.x, this.y, r);
+    g.addColorStop(0, this.glowColor); g.addColorStop(1, this.color);
+    ctx.shadowColor = this.color; ctx.shadowBlur = this.settled ? 10 : 5;
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(this.x, this.y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    // Shine
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath(); ctx.arc(this.x - r * 0.3, this.y - r * 0.3, r * 0.2, 0, Math.PI * 2); ctx.fill();
+  }
+  isSettled() { return this.settled && this.settledAt > 5; }
 }
-function drop(c){
-  if(over)return;
-  for(let r=ROWS-1;r>=0;r--){if(grid[r][c]===EMPTY){grid[r][c]=cur;break;}}
-  if(checkWin()){over=true;document.getElementById('msg').textContent='🎉 '+(cur===R1?'🔴 红':'🟡 黄')+'方获胜！';draw();return;}
-  if(ROWS*COLS-grid.flat().filter(v=>v===EMPTY).length===0){over=true;document.getElementById('msg').textContent='🤝 平局！';draw();return;}
-  cur=cur===R1?R2:R1;draw();}
-function checkWin(){
-  const dirs=[[0,1],[1,0],[1,1],[1,-1]];
-  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-    if(grid[r][c]!==cur)continue;
-    for(const[dr,dc]of dirs){
-      let ok=true;
-      for(let k=1;k<4;k++){const nr=r+dr*k,nc=c+dc*k;
-        if(nr<0||nr>=ROWS||nc<0||nc>=COLS||grid[nr][nc]!==cur){ok=false;break;}}
-      if(ok)return true;}}
-  return false;}
-function reset(){init();}
-const b=document.getElementById('board');
-for(let c=0;c<COLS;c++){
-  const col=document.createElement('button');col.className='col';
-  col.onclick=()=>drop(c);b.appendChild(col);}
-init();
+
+class Particle {
+  constructor(x, y, color) {
+    this.x = x; this.y = y; this.color = color;
+    const a = Math.random() * Math.PI * 2, sp = 3 + Math.random() * 5;
+    this.vx = Math.cos(a) * sp; this.vy = Math.sin(a) * sp - 2;
+    this.life = 1; this.decay = 0.02 + Math.random() * 0.02;
+    this.r = 3 + Math.random() * 5;
+  }
+  update() {
+    this.x += this.vx; this.y += this.vy; this.vy += 0.1;
+    this.life -= this.decay;
+  }
+  draw(ctx) {
+    ctx.globalAlpha = Math.max(0, this.life);
+    ctx.fillStyle = this.color; ctx.shadowColor = this.color; ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.r * this.life, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  }
+  isDead() { return this.life <= 0; }
+}
+
+class WinLine {
+  constructor(r1, c1, r2, c2, discW, slotW, padX, padY, cellH) {
+    this.r1 = r1; this.c1 = c1; this.r2 = r2; this.c2 = c2;
+    this.progress = 0;
+    const x1 = padX + c1 * (slotW) + discW / 2;
+    const y1 = padY + r1 * cellH + discW / 2;
+    const x2 = padX + c2 * (slotW) + discW / 2;
+    const y2 = padY + r2 * cellH + discW / 2;
+    this.x1 = x1; this.y1 = y1; this.x2 = x2; this.y2 = y2;
+  }
+  update() { this.progress = Math.min(1, this.progress + 0.03); }
+  draw(ctx) {
+    const ex = this.x1 + (this.x2 - this.x1) * this.progress;
+    const ey = this.y1 + (this.y2 - this.y1) * this.progress;
+    ctx.strokeStyle = '#ffffff'; ctx.shadowColor = '#ffffff'; ctx.shadowBlur = 20;
+    ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(this.x1, this.y1); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.shadowBlur = 0; ctx.lineCap = 'butt';
+  }
+}
+
+// ============================================================
+// GAME
+// ============================================================
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const ROWS = 6, COLS = 7, EMPTY = 0, R1 = 1, R2 = 2;
+const CELL_SIZE = 60, DISC_W = 50, SLOT_W = CELL_SIZE, PAD_X = 20, PAD_Y = 20;
+const CW = COLS * SLOT_W + PAD_X * 2, CH = ROWS * CELL_SIZE + PAD_Y * 2;
+canvas.width = CW; canvas.height = CH;
+
+let grid, cur, over, discQueue, particles, winLine, lastDisc;
+
+function init() {
+  grid = Array.from({ length: ROWS }, () => Array(COLS).fill(EMPTY));
+  cur = R1; over = false; discQueue = []; particles = []; winLine = null; lastDisc = null;
+  document.getElementById('msg').textContent = '';
+  updateTurnUI();
+}
+
+function updateTurnUI() {
+  document.getElementById('turn').textContent = (cur === R1 ? '🔴' : '🟡') + ' ' + (cur === R1 ? '红' : '黄') + '方手';
+  document.getElementById('turn').style.color = cur === R1 ? '#ff6666' : '#ffca28';
+}
+
+function drop(col) {
+  if (over) return;
+  // Find drop row
+  let dropRow = -1;
+  for (let r = ROWS - 1; r >= 0; r--) { if (grid[r][col] === EMPTY) { dropRow = r; break; } }
+  if (dropRow === -1) return;
+  grid[dropRow][col] = cur;
+  const x = PAD_X + col * SLOT_W + DISC_W / 2;
+  const y = PAD_Y + dropRow * CELL_SIZE + DISC_W / 2;
+  const disc = new Disc(dropRow, col, cur, x, y, DISC_W);
+  disc.startDrop(y);
+  discQueue.push(disc); lastDisc = disc;
+}
+
+function update() {
+  let allSettled = discQueue.length === 0 || discQueue.every(d => d.isSettled());
+  discQueue.forEach(d => d.update());
+  if (winLine) winLine.update();
+  particles.forEach(p => p.update());
+  particles = particles.filter(p => !p.isDead());
+  // Check win after discs settle
+  if (allSettled && !over && lastDisc && lastDisc.isSettled()) {
+    const w = checkWin(lastDisc.row, lastDisc.col);
+    if (w) {
+      over = true;
+      const winner = cur === R1 ? '🔴 红' : '🟡 黄';
+      document.getElementById('msg').textContent = '🎉 ' + winner + '方获胜！';
+      // Win animation
+      const [r1, c1] = w; const [r2, c2] = [w[0] + w[2] * 3, w[1] + w[3] * 3];
+      winLine = new WinLine(r1, c1, r2, c2, DISC_W, SLOT_W, PAD_X, PAD_Y, CELL_SIZE);
+      // Celebration particles
+      for (let i = 0; i < 40; i++) {
+        particles.push(new Particle(CW / 2 + (Math.random() - 0.5) * CW, CH / 2, lastDisc.color));
+      }
+    } else {
+      // Check draw
+      if (ROWS * COLS - grid.flat().filter(v => v === EMPTY).length === 0) {
+        over = true; document.getElementById('msg').textContent = '🤝 平局！';
+      } else {
+        cur = cur === R1 ? R2 : R1; updateTurnUI();
+      }
+    }
+  }
+}
+
+function checkWin(r, c) {
+  const dirs = [[0, 1, 0, 1], [1, 0, 1, 0], [1, 1, 1, 1], [1, -1, 1, -1]];
+  for (const [dr, dc, dr2, dc2] of dirs) {
+    let count = 1;
+    let r1 = r, c1 = c, r2 = r, c2 = c;
+    for (let k = 1; k < 4; k++) {
+      const nr = r + dr * k, nc = c + dc * k;
+      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === cur) { count++; r2 = nr; c2 = nc; } else break;
+    }
+    for (let k = 1; k < 4; k++) {
+      const nr = r - dr * k, nc = c - dc * k;
+      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === cur) { count++; r1 = nr; c1 = nc; } else break;
+    }
+    if (count >= 4) return [r1, c1, dr, dc];
+  }
+  return null;
+}
+
+function draw() {
+  // Board background with blue gradient
+  const bg = ctx.createLinearGradient(0, 0, 0, CH);
+  bg.addColorStop(0, '#1a1a5a'); bg.addColorStop(1, '#0d0d2a');
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(0, 0, CW, CH, 16); ctx.fill();
+  // Board border
+  ctx.strokeStyle = 'rgba(100,100,200,.3)'; ctx.lineWidth = 2;
+  ctx.stroke();
+  // Cell slots
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const sx = PAD_X + c * SLOT_W, sy = PAD_Y + r * CELL_SIZE;
+    ctx.fillStyle = 'rgba(0,0,0,.5)';
+    ctx.beginPath(); ctx.arc(sx + DISC_W / 2, sy + DISC_W / 2, DISC_W / 2 - 3, 0, Math.PI * 2); ctx.fill();
+  }
+  // Discs
+  discQueue.forEach(d => d.draw(ctx));
+  // Win line
+  if (winLine) winLine.draw(ctx);
+  // Particles
+  particles.forEach(p => p.draw(ctx));
+  // Hover column highlight
+  if (!over) {
+    const hoverCol = getHoverCol();
+    if (hoverCol >= 0) {
+      for (let r = 0; r < ROWS; r++) {
+        if (grid[r][hoverCol] === EMPTY) {
+          const sx = PAD_X + hoverCol * SLOT_W;
+          ctx.strokeStyle = cur === R1 ? 'rgba(255,100,100,.4)' : 'rgba(255,200,100,.4)';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(sx + DISC_W / 2, PAD_Y + r * CELL_SIZE + DISC_W / 2, DISC_W / 2 - 3, 0, Math.PI * 2); ctx.stroke();
+          break;
+        }
+      }
+    }
+  }
+}
+
+let mouseX = -1;
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouseX = e.clientX - rect.left;
+});
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const col = Math.floor((mx - PAD_X) / SLOT_W);
+  if (col >= 0 && col < COLS) drop(col);
+});
+
+function getHoverCol() {
+  if (mouseX < PAD_X) return -1;
+  return Math.min(COLS - 1, Math.floor((mouseX - PAD_X) / SLOT_W));
+}
+
+function reset() { init(); }
+
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+init(); loop();
 </script></body></html>
