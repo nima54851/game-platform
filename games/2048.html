@@ -330,9 +330,9 @@ function startGame() {
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('overlay').querySelector('h1').textContent = '🔢 2048';
   document.getElementById('overlay').querySelector('p').textContent = '↑ ↓ ← → 滑动合并方块，挑战2048！';
-  init(); draw();
+  draw();
 }
 document.getElementById('overlay').style.display = 'flex';
-init(); draw();
+draw();
 } catch(e) { console.error(e); }
 </script></body></html>
