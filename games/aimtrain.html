@@ -79,7 +79,7 @@ class Target {
     ctx.fillText('+' + this.pts, this.x + r + 12, this.y - 6);
     // Inner glow ring
     const gr = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, r);
-    gr.addColorStop(0, this.color.replace(')', ',0.08)').replace('hsl', 'hsla'));
+    gr.addColorStop(0, this.color.replace('hsl(', 'hsla(').replace(')', ', 0.08)'));
     gr.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(this.x, this.y, r, 0, Math.PI * 2); ctx.fill();
   }
