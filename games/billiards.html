@@ -371,7 +371,7 @@ class Game {
     this.canvas.addEventListener('touchend', e => { e.preventDefault(); this._onUp(e); });
 
     document.getElementById('overlay').style.display = 'flex';
-    this.start();
+    // DO NOT auto-start — wait for button click
   }
 
   init() {
