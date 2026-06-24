@@ -7,12 +7,20 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
 .stat{background:rgba(0,0,0,.5);border:1px solid rgba(0,200,255,.2);padding:8px 20px;border-radius:8px;text-align:center}
 .stat .v{font-size:22px;font-weight:900;color:#00c8ff;text-shadow:0 0 8px rgba(0,200,255,.6)}
 .stat .l{font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:2px}
-#board{display:grid;gap:2px;padding:10px;background:rgba(0,0,0,.3);border-radius:12px;border:1px solid rgba(255,255,255,.08)}
+#board-wrap{position:relative;padding:10px;background:rgba(0,0,0,.3);border-radius:12px;border:1px solid rgba(255,255,255,.08)}
+canvas#bg-canvas{position:absolute;inset:0;border-radius:12px;pointer-events:none;z-index:0}
+#board{display:grid;gap:2px;position:relative;z-index:1}
 .cell{width:36px;height:36px;border-radius:4px;border:none;cursor:pointer;font-size:16px;font-weight:700;
-  transition:all .1s;display:flex;align-items:center;justify-content:center}
+  transition:all .1s;display:flex;align-items:center;justify-content:center;
+  font-family:monospace;position:relative}
 .cell.closed{background:linear-gradient(135deg,#2a2a4a,#1a1a3a);box-shadow:inset 0 1px 0 rgba(255,255,255,.1)}
+.cell.closed:hover{background:linear-gradient(135deg,#3a3a5a,#2a2a4a)}
 .cell.open{background:#0d0d1a}
 .cell.flag{background:linear-gradient(135deg,#2a1a1a,#1a0d0d)}
+.cell.mine-hit{background:rgba(255,50,50,.3);animation:mineExplode .4s ease}
+.cell.reveal{animation:cellReveal .2s ease}
+@keyframes mineExplode{0%{transform:scale(1.3)}50%{transform:scale(0.8)}100%{transform:scale(1)}}
+@keyframes cellReveal{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
 #overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(6px)}
 #overlay h1{font-size:40px;margin-bottom:16px;text-shadow:0 0 20px rgba(0,200,255,.5)}
 #overlay p{color:rgba(255,255,255,.5);margin-bottom:24px}
@@ -23,64 +31,164 @@ body{background:#1a1a2e;display:flex;flex-direction:column;align-items:center;ju
   <div class="stat"><div class="v" id="timer">000</div><div class="l">时间</div></div>
   <div class="stat"><div class="v" id="result"></div><div class="l">状态</div></div>
 </div>
-<div id="board"></div>
+<div id="board-wrap">
+  <canvas id="bg-canvas"></canvas>
+  <div id="board"></div>
+</div>
 <div id="overlay">
   <h1>💣 扫雷专家</h1>
   <p>左键翻开 · 右键标记地雷 · 找出所有安全格子</p>
   <button id="btn" onclick="init()">▶ 开始</button>
 </div>
 <script>
-const COLS=10,ROWS=10,MINE_COUNT=15;
-let board=[],over=false,timer=null,sec=0,flagCount=0;
-function init(){
-  board=[];over=false;sec=0;flagCount=MINE_COUNT;
-  for(let r=0;r<ROWS;r++){board[r]=[];for(let c=0;c<COLS;c++)board[r][c]={mine:false,open:false,flag:false,adj:0};}
-  let placed=0;
-  while(placed<MINE_COUNT){const r=Math.floor(Math.random()*ROWS),c=Math.floor(Math.random()*COLS);
-    if(!board[r][c].mine){board[r][c].mine=true;placed++;}}
-  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(!board[r][c].mine){
-    let cnt=0;[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(([dr,dc])=>{
-      const nr=r+dr,nc=c+dc;if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&board[nr][nc].mine)cnt++;});
-    board[r][c].adj=cnt;}
-  clearInterval(timer);timer=setInterval(()=>{sec++;document.getElementById('timer').textContent=String(sec).padStart(3,'0');},1000);
-  document.getElementById('result').textContent='';
-  document.getElementById('flags').textContent=flagCount;
-  document.getElementById('overlay').style.display='none';
-  draw();}
-function draw(){
-  const b=document.getElementById('board');
-  b.style.gridTemplateColumns=`repeat(${COLS},36px)`;
-  b.innerHTML='';
-  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
-    const cell=document.createElement('button');
-    cell.className='cell '+(board[r][c].open?'open':board[r][c].flag?'flag':'closed');
-    const v=board[r][c];
-    if(v.open){
-      if(v.mine){cell.textContent='💥';cell.style.color='#ff4444';cell.style.background='rgba(255,0,0,.2)';}
-      else if(v.adj>0){
-        const cols=['','#4fc3f7','#66bb6a','#ffca28','#ff8800','#ff4444','#ab47bc','#00c8ff','#ffffff'];
-        cell.textContent=v.adj;cell.style.color=cols[v.adj]||'#fff';cell.style.textShadow=`0 0 8px ${cols[v.adj]}`;
+// ============================================================
+// CLASSES
+// ============================================================
+class Mine {
+  constructor(r, c) { this.r = r; this.c = c; }
+}
+
+class Cell {
+  constructor(r, c) {
+    this.r = r; this.c = c;
+    this.mine = false; this.open = false; this.flag = false; this.adj = 0;
+  }
+  draw() {
+    const el = document.createElement('button');
+    el.className = 'cell ' + (this.open ? 'open' : this.flag ? 'flag' : 'closed');
+    if (this.open) {
+      if (this.mine) {
+        el.textContent = '💥'; el.style.color = '#ff4444';
+        el.style.background = 'rgba(255,0,0,.2)'; el.classList.add('mine-hit');
+      } else if (this.adj > 0) {
+        const cols = ['','#4fc3f7','#66bb6a','#ffca28','#ff8800','#ff4444','#ab47bc','#00c8ff','#ffffff'];
+        el.textContent = this.adj;
+        el.style.color = cols[this.adj] || '#fff';
+        el.style.textShadow = `0 0 10px ${cols[this.adj]}`;
+        el.classList.add('reveal');
       }
-    }else if(v.flag){cell.textContent='🚩';}
-    cell.onclick=()=>open(r,c);
-    cell.oncontextmenu=(e)=>{e.preventDefault();toggleFlag(r,c);};
-    b.appendChild(cell);}}
-function open(r,c){
-  if(over||board[r][c].open||board[r][c].flag)return;
-  board[r][c].open=true;
-  if(board[r][c].mine){over=true;clearInterval(timer);document.getElementById('result').textContent='💥';
-    document.getElementById('overlay').querySelector('h1').textContent='💥 踩雷了！';
-    document.getElementById('overlay').style.display='flex';draw();return;}
-  if(board[r][c].adj===0){[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(([dr,dc])=>{const nr=r+dr,nc=c+dc;if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS)open(nr,nc);});}
-  draw();checkWin();}
-function toggleFlag(r,c){if(over||board[r][c].open)return;
-  board[r][c].flag=!board[r][c].flag;
-  flagCount+=board[r][c].flag?-1:1;
-  document.getElementById('flags').textContent=flagCount;draw();}
-function checkWin(){
-  let opened=0;for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(board[r][c].open)opened++;
-  if(opened===COLS*ROWS-MINE_COUNT){over=true;clearInterval(timer);document.getElementById('result').textContent='🏆';
-    document.getElementById('overlay').querySelector('h1').textContent='🏆 通关！';
-    document.getElementById('overlay').style.display='flex';}}
-document.getElementById('overlay').style.display='flex';
+    } else if (this.flag) {
+      el.textContent = '🚩';
+    }
+    el.onclick = () => open(this.r, this.c);
+    el.oncontextmenu = (e) => { e.preventDefault(); toggleFlag(this.r, this.c); };
+    return el;
+  }
+}
+
+// ============================================================
+// GAME
+// ============================================================
+const COLS = 10, ROWS = 10, MINE_COUNT = 15;
+let board = [], over = false, timer = null, sec = 0, flagCount = 0;
+let bgCanvas, bgCtx, bgFrame = 0;
+let cells = [];
+
+function init() {
+  clearInterval(timer); sec = 0; over = false; flagCount = MINE_COUNT;
+  board = []; cells = [];
+  for (let r = 0; r < ROWS; r++) {
+    board[r] = []; cells[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      board[r][c] = { mine: false, open: false, flag: false, adj: 0 };
+      cells[r][c] = new Cell(r, c);
+    }
+  }
+  // Place mines
+  let placed = 0;
+  while (placed < MINE_COUNT) {
+    const r = Math.floor(Math.random() * ROWS), c = Math.floor(Math.random() * COLS);
+    if (!board[r][c].mine) { board[r][c].mine = true; placed++; }
+  }
+  // Compute adjacency
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (!board[r][c].mine) {
+    let cnt = 0;
+    [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(([dr,dc]) => {
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc].mine) cnt++;
+    });
+    board[r][c].adj = cnt;
+  }
+  timer = setInterval(() => {
+    sec++;
+    document.getElementById('timer').textContent = String(sec).padStart(3, '0');
+  }, 1000);
+  document.getElementById('result').textContent = '';
+  document.getElementById('flags').textContent = flagCount;
+  document.getElementById('overlay').style.display = 'none';
+  // Setup bg canvas
+  bgCanvas = document.getElementById('bg-canvas');
+  const wrap = document.getElementById('board-wrap');
+  bgCanvas.width = wrap.offsetWidth; bgCanvas.height = wrap.offsetHeight;
+  bgCtx = bgCanvas.getContext('2d');
+  drawBg();
+  render();
+}
+
+function render() {
+  const b = document.getElementById('board');
+  b.style.gridTemplateColumns = `repeat(${COLS},36px)`;
+  b.innerHTML = '';
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) b.appendChild(cells[r][c].draw());
+}
+
+function open(r, c) {
+  if (over || board[r][c].open || board[r][c].flag) return;
+  board[r][c].open = true; cells[r][c].open = true;
+  if (board[r][c].mine) {
+    over = true; clearInterval(timer);
+    document.getElementById('result').textContent = '💥';
+    document.getElementById('overlay').querySelector('h1').textContent = '💥 踩雷了！';
+    document.getElementById('overlay').style.display = 'flex';
+    // Reveal all mines
+    for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) {
+      if (board[rr][cc].mine) { board[rr][cc].open = true; cells[rr][cc].open = true; }
+    }
+    render(); return;
+  }
+  if (board[r][c].adj === 0) {
+    [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].forEach(([dr,dc]) => {
+      const nr = r + dr, nc = c + dc;
+      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) open(nr, nc);
+    });
+  }
+  render(); checkWin();
+}
+
+function toggleFlag(r, c) {
+  if (over || board[r][c].open) return;
+  board[r][c].flag = !board[r][c].flag; cells[r][c].flag = !cells[r][c].flag;
+  flagCount += board[r][c].flag ? -1 : 1;
+  document.getElementById('flags').textContent = flagCount; render();
+}
+
+function checkWin() {
+  let opened = 0;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (board[r][c].open) opened++;
+  if (opened === COLS * ROWS - MINE_COUNT) {
+    over = true; clearInterval(timer);
+    document.getElementById('result').textContent = '🏆';
+    document.getElementById('overlay').querySelector('h1').textContent = '🏆 通关！';
+    document.getElementById('overlay').style.display = 'flex';
+  }
+}
+
+function drawBg() {
+  if (!bgCtx) return;
+  const w = bgCanvas.width, h = bgCanvas.height;
+  bgCtx.fillStyle = 'rgba(0,0,0,0)'; bgCtx.clearRect(0, 0, w, h);
+  // Pixel grid pattern
+  bgCtx.fillStyle = 'rgba(0,200,255,0.02)';
+  for (let x = 0; x < w; x += 12) for (let y = 0; y < h; y += 12) {
+    bgCtx.fillRect(x, y, 1, 1);
+  }
+  // Scanline
+  const scanAlpha = 0.03 + 0.02 * Math.sin(bgFrame * 0.1);
+  bgCtx.fillStyle = `rgba(0,200,255,${scanAlpha})`;
+  bgCtx.fillRect(0, (bgFrame * 2) % h, w, 2);
+  bgFrame++;
+  if (!over) requestAnimationFrame(drawBg);
+}
+
+document.getElementById('overlay').style.display = 'flex';
 </script></body></html>
