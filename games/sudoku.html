@@ -3,6 +3,10 @@
 <title>🔢 数独大师</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}
 body{background:#060612;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;overflow:hidden}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(6px)}
+#overlay h1{font-size:42px;margin-bottom:8px;text-shadow:0 0 20px rgba(0,200,255,.5)}
+#overlay p{color:rgba(255,255,255,.4);margin-bottom:24px}
+#start-btn{background:#00c8ff;color:#000;padding:14px 48px;border:none;border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;font-family:monospace;box-shadow:0 0 30px rgba(0,200,255,.4)}
 #wrap{background:rgba(10,5,30,.9);border:1px solid rgba(0,200,255,.15);border-radius:16px;padding:24px;backdrop-filter:blur(10px);position:relative}
 #bg-glow{position:absolute;inset:0;border-radius:16px;pointer-events:none;overflow:hidden}
 #top{display:flex;gap:16px;margin-bottom:16px;align-items:center}
@@ -34,6 +38,11 @@ body{background:#060612;display:flex;flex-direction:column;align-items:center;ju
 #msg.show{animation:fadeInOut 2s ease forwards}
 @keyframes fadeInOut{0%{opacity:0}20%{opacity:1}80%{opacity:1}100%{opacity:0}}
 </style></head><body>
+<div id="overlay">
+  <h1>🔢 数独大师</h1>
+  <p>点击格子选择 · 点击数字填入 · 先填完获胜</p>
+  <button id="start-btn" onclick="doStart()">▶ 开始</button>
+</div>
 <div id="wrap">
   <canvas id="bg" style="position:absolute;inset:0;border-radius:16px;pointer-events:none;z-index:0;opacity:.4"></canvas>
   <div id="top" style="position:relative;z-index:1">
@@ -278,5 +287,10 @@ function updateTimer() {
   document.getElementById('timer').textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
 }
 
-newGame();
+var started = false;
+function doStart() {
+  started = true;
+  document.getElementById('overlay').style.display = 'none';
+  newGame();
+}
 </script></body></html>
