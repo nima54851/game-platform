@@ -25,87 +25,252 @@ canvas{border-radius:8px;display:block}
 </div>
 <canvas id="c"></canvas>
 <script>
-const canvas=document.getElementById('c');
-const ctx=canvas.getContext('2d');
-const W=Math.min(500,window.innerWidth-20),H=Math.min(600,window.innerHeight-40);
-canvas.width=W;canvas.height=H;
-let ball={},hoop={x:0,y:0,w:70,h:8,rimL:0,rimR:0},score,streak,made,total,power,aimAngle,charging,frame,particles;
-function init(){
-  ball={x:W*.3,y:H-100,r:18,vx:0,vy:0,active:false,onCourt:true};
-  hoop={x:W*.65,y:H*.28,w:72,h:8};
-  hoop.rimL=hoop.x-hoop.w/2;hoop.rimR=hoop.x+hoop.w/2;
-  score=0;streak=0;made=0;total=0;power=0;aimAngle=-Math.PI/3;charging=false;particles=[];
-  document.getElementById('s').textContent=0;document.getElementById('streak').textContent=0;document.getElementById('shots').textContent='0/0';}
-function spawnParticles(x,y,color,count=15){for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2;const sp=2+Math.random()*4;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:.02+Math.random()*.02,color,r:2+Math.random()*4});}}
-canvas.addEventListener('mousedown',e=>{if(!ball.active&&ball.onCourt){charging=true;}});
-canvas.addEventListener('mousemove',e=>{if(charging){aimAngle=Math.atan2(ball.y-(e.clientY-canvas.getBoundingClientRect().top),ball.x-(e.clientX-canvas.getBoundingClientRect().left));power=Math.min(22,power+.3);}});
-canvas.addEventListener('mouseup',()=>{if(charging&&power>0){ball.vx=Math.cos(aimAngle)*power;ball.vy=Math.sin(aimAngle)*power;ball.active=true;ball.onCourt=false;charging=false;power=0;total++;updateHUD();}});
-function update(){
+// ============================================================
+// CLASSES
+// ============================================================
+class Particle {
+  constructor(x, y, color, count) {
+    this.x = x; this.y = y; this.color = color;
+    const a = Math.random() * Math.PI * 2;
+    const sp = 2 + Math.random() * 4;
+    this.vx = Math.cos(a) * sp; this.vy = Math.sin(a) * sp;
+    this.life = 1; this.decay = 0.02 + Math.random() * 0.03;
+    this.r = 2 + Math.random() * 4;
+    if (count !== undefined) {
+      this.vx = (Math.random() - 0.5) * 6; this.vy = -Math.random() * 6;
+      this.r = 1 + Math.random() * 3; this.decay = 0.03;
+    }
+  }
+  update() {
+    this.x += this.vx; this.y += this.vy; this.vy += 0.15;
+    this.life -= this.decay;
+  }
+  draw(ctx) {
+    ctx.globalAlpha = Math.max(0, this.life);
+    ctx.fillStyle = this.color; ctx.shadowColor = this.color; ctx.shadowBlur = 5;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.r * this.life, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  }
+  isDead() { return this.life <= 0; }
+}
+
+class Ball {
+  constructor(x, y, r) {
+    this.x = x; this.y = y; this.r = r;
+    this.vx = 0; this.vy = 0;
+    this.active = false; this.onCourt = true;
+    this.trail = [];
+  }
+  launch(vx, vy) { this.vx = vx; this.vy = vy; this.active = true; this.onCourt = false; this.trail = []; }
+  update() {
+    if (!this.active) return;
+    this.vy += 0.4; this.x += this.vx; this.y += this.vy;
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 20) this.trail.shift();
+  }
+  draw(ctx, frame) {
+    if (!this.onCourt && !this.active) return;
+    // Trail
+    for (let i = 0; i < this.trail.length; i++) {
+      const t = this.trail[i];
+      const alpha = (i / this.trail.length) * 0.3;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ff8800';
+      ctx.beginPath(); ctx.arc(t.x, t.y, this.r * 0.6 * (i / this.trail.length), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Ball
+    const bg = ctx.createRadialGradient(this.x - this.r * 0.3, this.y - this.r * 0.3, 0, this.x, this.y, this.r);
+    bg.addColorStop(0, '#ff8800'); bg.addColorStop(1, '#cc4400');
+    ctx.fillStyle = bg; ctx.shadowColor = '#ff8800'; ctx.shadowBlur = this.active ? 0 : 10;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+    // Lines
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(this.x - this.r, this.y); ctx.lineTo(this.x + this.r, this.y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(this.x, this.y - this.r); ctx.lineTo(this.x, this.y + this.r); ctx.stroke();
+  }
+  isOutOfBounds(W, H) { return this.y > H + 50 || this.x < -50 || this.x > W + 50; }
+}
+
+class Hoop {
+  constructor(x, y, w, h) {
+    this.x = x; this.y = y; this.w = w; this.h = h;
+    this.rimL = x - w / 2; this.rimR = x + w / 2;
+  }
+  checkScore(ball) {
+    if (ball.y > this.y - this.h && ball.y < this.y + this.h + 20 &&
+        ball.x > this.rimL + ball.r && ball.x < this.rimR - ball.r) {
+      return ball.vy > 0;
+    }
+    return false;
+  }
+  checkRim(ball) {
+    const rdx = ball.x - this.x, rdy = ball.y - this.y;
+    const rimD = this.w / 2 + ball.r;
+    if (Math.abs(rdy) < ball.r + 5 && Math.abs(rdx) < rimD) {
+      const dist = Math.sqrt(rdx * rdx + rdy * rdy);
+      if (dist > this.w / 2 - ball.r * 0.5) {
+        ball.vx *= -0.6; ball.vy *= 0.5; ball.x += ball.vx * 2;
+        return true;
+      }
+    }
+    return false;
+  }
+  draw(ctx, frame) {
+    // Backboard
+    ctx.fillStyle = 'rgba(200,200,255,.12)';
+    ctx.fillRect(this.x - 40, this.y - 80, 80, 75);
+    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 2;
+    ctx.strokeRect(this.x - 40, this.y - 80, 80, 75);
+    // Hoop rim
+    ctx.fillStyle = '#ff4400'; ctx.shadowColor = '#ff4400'; ctx.shadowBlur = 18;
+    ctx.fillRect(this.rimL, this.y, this.w, this.h);
+    ctx.shadowBlur = 0;
+    // Net (wave animation)
+    ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 6; i++) {
+      const nx = this.rimL + 5 + i * (this.w - 10) / 5;
+      const wave = Math.sin(frame * 0.1 + i) * 2;
+      ctx.beginPath();
+      ctx.moveTo(nx, this.y + this.h);
+      ctx.quadraticCurveTo(
+        this.x + (nx - this.rimL) * 0.3 + wave,
+        this.y + 25,
+        this.x + (nx - this.rimL) * 0.1,
+        this.y + 42
+      );
+      ctx.stroke();
+    }
+  }
+}
+
+// ============================================================
+// GAME
+// ============================================================
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = Math.min(500, window.innerWidth - 20), H = Math.min(600, window.innerHeight - 40);
+canvas.width = W; canvas.height = H;
+
+let ball, hoop, score, streak, made, total, power, aimAngle, charging, frame, particles;
+const SHOOTER_X = W * 0.3, SHOOTER_Y = H - 100, BALL_R = 18;
+
+function init() {
+  ball = new Ball(SHOOTER_X, SHOOTER_Y, BALL_R);
+  hoop = new Hoop(W * 0.65, H * 0.28, 72, 8);
+  score = 0; streak = 0; made = 0; total = 0; power = 0; aimAngle = -Math.PI / 3; charging = false; frame = 0; particles = [];
+  document.getElementById('s').textContent = 0; document.getElementById('streak').textContent = 0;
+  document.getElementById('shots').textContent = '0/0';
+}
+
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) particles.push(new Particle(x, y, color, count));
+}
+
+canvas.addEventListener('mousedown', e => { if (!ball.active && ball.onCourt) charging = true; });
+canvas.addEventListener('mousemove', e => {
+  if (charging) {
+    const rect = canvas.getBoundingClientRect();
+    aimAngle = Math.atan2(ball.y - (e.clientY - rect.top), ball.x - (e.clientX - rect.left));
+    power = Math.min(22, power + 0.3);
+  }
+});
+canvas.addEventListener('mouseup', () => {
+  if (charging && power > 0) {
+    ball.launch(Math.cos(aimAngle) * power, Math.sin(aimAngle) * power);
+    charging = false; power = 0; total++; updateHUD();
+  }
+});
+
+function update() {
   frame++;
-  if(ball.active){
-    ball.vy+=.4;ball.x+=ball.vx;ball.y+=ball.vy;
-    // Rim collision
-    const rdx=ball.x-hoop.x,rdy=ball.y-hoop.y;
-    const rimD=hoop.w/2+ball.r;
-    if(Math.abs(rdy)<ball.r+5&&Math.abs(rdx)<rimD){
-      const rimDist=Math.sqrt(rdx*rdx+rdy*rdy);
-      if(rimDist>hoop.w/2-ball.r*0.5){ball.vx*=-.6;ball.vy*=.5;ball.x+=ball.vx*2;}}
-    // Score detection
-    if(ball.y>hoop.y-hoop.h&&ball.y<hoop.y+hoop.h+20&&ball.x>hoop.rimL+ball.r&&ball.x<hoop.rimR-ball.r){
-      if(ball.vy>0){score+=2+streak;made++;streak++;spawnParticles(hoop.x,hoop.y,'#ff8800',25);resetBall();updateHUD();}}
-    // Out of bounds
-    if(ball.y>H+50||ball.x<-50||ball.x>W+50){spawnParticles(ball.x,Math.min(ball.y,H-20),'#ff4444',10);resetBall();streak=0;updateHUD();}}
-  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.1;p.life-=p.decay;});particles=particles.filter(p=>p.life>0);}
-function resetBall(){ball={x:W*.3,y:H-100,r:18,vx:0,vy:0,active:false,onCourt:true};}
-function updateHUD(){document.getElementById('s').textContent=score;document.getElementById('streak').textContent=streak;document.getElementById('shots').textContent=total>0?made+'/'+total:'';}
-function draw(){
-  // Sky
-  const sky=ctx.createLinearGradient(0,0,0,H);
-  sky.addColorStop(0,'#0a1a3a');sky.addColorStop(1,'#0a1a2a');
-  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+  if (ball.active) {
+    ball.update();
+    hoop.checkRim(ball);
+    if (hoop.checkScore(ball)) {
+      score += 2 + streak; made++; streak++;
+      spawnParticles(hoop.x, hoop.y, '#ff8800', 20);
+      spawnParticles(hoop.x, hoop.y, '#ffdd00', 15);
+      resetBall(); updateHUD();
+    }
+    if (ball.isOutOfBounds(W, H)) {
+      spawnParticles(Math.min(ball.x, W - 20), Math.min(ball.y, H - 20), '#ff4444', 10);
+      resetBall(); streak = 0; updateHUD();
+    }
+  }
+  particles.forEach(p => p.update());
+  particles = particles.filter(p => !p.isDead());
+}
+
+function resetBall() { ball = new Ball(SHOOTER_X, SHOOTER_Y, BALL_R); }
+function updateHUD() {
+  document.getElementById('s').textContent = score;
+  document.getElementById('streak').textContent = streak;
+  document.getElementById('shots').textContent = total > 0 ? made + '/' + total : '';
+}
+
+function draw() {
+  // Stadium sky
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#0a1a3a'); sky.addColorStop(0.4, '#0a2a4a'); sky.addColorStop(1, '#0a1a2a');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  // Crowd silhouettes
+  ctx.fillStyle = 'rgba(20,30,50,0.8)';
+  for (let i = 0; i < W; i += 15) {
+    const ch = 20 + 10 * Math.sin(i * 0.3);
+    ctx.fillRect(i, H * 0.55 - ch, 12, ch);
+  }
+  // Stadium lights glow
+  const sg = ctx.createRadialGradient(W * 0.2, H * 0.1, 0, W * 0.2, H * 0.1, 100);
+  sg.addColorStop(0, 'rgba(255,240,180,0.08)'); sg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sg; ctx.fillRect(0, 0, W, H);
+  const sg2 = ctx.createRadialGradient(W * 0.8, H * 0.1, 0, W * 0.8, H * 0.1, 100);
+  sg2.addColorStop(0, 'rgba(255,240,180,0.08)'); sg2.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sg2; ctx.fillRect(0, 0, W, H);
   // Court floor
-  const court=ctx.createLinearGradient(0,H*.6,H,H);
-  court.addColorStop(0,'#1a0a00');court.addColorStop(1,'#2d1500');
-  ctx.fillStyle=court;ctx.fillRect(0,H*.7,W,H*.3);
+  const court = ctx.createLinearGradient(0, H * 0.6, 0, H);
+  court.addColorStop(0, '#1a0a00'); court.addColorStop(1, '#2d1500');
+  ctx.fillStyle = court; ctx.fillRect(0, H * 0.7, W, H * 0.3);
   // Court line
-  ctx.strokeStyle='rgba(255,136,0,.3)';ctx.lineWidth=2;
-  ctx.beginPath();ctx.moveTo(0,H*.7);ctx.lineTo(W,H*.7);ctx.stroke();
-  // Backboard
-  ctx.fillStyle='rgba(200,200,255,.1)';
-  ctx.fillRect(hoop.x-40,hoop.y-80,80,75);
-  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=2;
-  ctx.strokeRect(hoop.x-40,hoop.y-80,80,75);
+  ctx.strokeStyle = 'rgba(255,136,0,.35)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, H * 0.7); ctx.lineTo(W, H * 0.7); ctx.stroke();
+  // Free throw area
+  ctx.strokeStyle = 'rgba(255,136,0,.15)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(hoop.x, H * 0.7, 50, Math.PI, 0); ctx.stroke();
   // Hoop
-  ctx.fillStyle='#ff4400';ctx.shadowColor='#ff4400';ctx.shadowBlur=15;
-  ctx.fillRect(hoop.rimL,hoop.y,hoop.w,hoop.h);
-  // Net (simple)
-  ctx.strokeStyle='rgba(255,255,255,.2)';ctx.lineWidth=1;
-  for(let i=0;i<6;i++){const nx=hoop.rimL+5+i*(hoop.w-10)/5;ctx.beginPath();ctx.moveTo(nx,hoop.y+hoop.h);ctx.lineTo(hoop.x+(nx-hoop.rimL)*.3,hoop.y+40);ctx.stroke();}
-  ctx.shadowBlur=0;
-  // Aim line
-  if(charging){
-    ctx.strokeStyle='rgba(255,136,0,.4)';ctx.lineWidth=2;ctx.setLineDash([8,4]);
-    ctx.beginPath();ctx.moveTo(ball.x,ball.y);ctx.lineTo(ball.x+Math.cos(aimAngle)*power*5,ball.y+Math.sin(aimAngle)*power*5);ctx.stroke();ctx.setLineDash([]);
+  hoop.draw(ctx, frame);
+  // Arc trajectory preview
+  if (charging) {
+    ctx.strokeStyle = 'rgba(255,136,0,.4)'; ctx.lineWidth = 2; ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    ctx.moveTo(ball.x, ball.y);
+    const steps = 30;
+    let px = ball.x, py = ball.y, pvx = Math.cos(aimAngle), pvy = Math.sin(aimAngle);
+    for (let i = 0; i < steps; i++) {
+      pvx; pvy += 0.4; px += Math.cos(aimAngle) * power * 0.3; py += pvy;
+      ctx.lineTo(px, py);
+      if (py > H) break;
+    }
+    ctx.stroke(); ctx.setLineDash([]);
     // Power bar
-    const pct=power/22;
-    ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(ball.x-20,ball.y-35,40,8);
-    const barColor=pct<.5?'#00ff88':pct<.8?'#ffca28':'#ff4444';
-    ctx.fillStyle=barColor;ctx.fillRect(ball.x-20,ball.y-35,40*pct,8);}
+    const pct = power / 22;
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(ball.x - 22, ball.y - 38, 44, 9);
+    const barColor = pct < 0.5 ? '#00ff88' : pct < 0.8 ? '#ffca28' : '#ff4444';
+    ctx.fillStyle = barColor; ctx.shadowColor = barColor; ctx.shadowBlur = 5;
+    ctx.fillRect(ball.x - 22, ball.y - 38, 44 * pct, 9); ctx.shadowBlur = 0;
+  }
   // Ball
-  if(ball.onCourt||ball.active){
-    const bg=ctx.createRadialGradient(ball.x-ball.r*.3,ball.y-ball.r*.3,0,ball.x,ball.y,ball.r);
-    bg.addColorStop(0,'#ff8800');bg.addColorStop(1,'#cc4400');
-    ctx.fillStyle=bg;ctx.shadowColor='#ff8800';ctx.shadowBlur=ball.active?0:8;
-    ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-    // Ball lines
-    ctx.strokeStyle='rgba(0,0,0,.3)';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(ball.x-ball.r,ball.y);ctx.lineTo(ball.x+ball.r,ball.y);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(ball.x,ball.y-ball.r);ctx.lineTo(ball.x,ball.y+ball.r);ctx.stroke();}
+  ball.draw(ctx, frame);
   // Particles
-  particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});
-  ctx.globalAlpha=1;}
-function loop(){update();draw();requestAnimationFrame(loop);}
-function start(){document.getElementById('overlay').style.display='none';document.getElementById('overlay').querySelector('h1').textContent='🏀 投篮大师';init();loop();}
-document.getElementById('overlay').style.display='flex';init();loop();
+  particles.forEach(p => p.draw(ctx));
+}
+
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+function start() {
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('overlay').querySelector('h1').textContent = '🏀 投篮大师';
+  init(); loop();
+}
+document.getElementById('overlay').style.display = 'flex'; init(); loop();
 </script></body></html>
