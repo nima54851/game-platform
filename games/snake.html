@@ -275,10 +275,20 @@ function update() {
   const head = new SnakeSegment(snake[0].x + dir.x, snake[0].y + dir.y);
 
   if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
-    gameOver = true; burst(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, '#ef5350', 30); sparkBurst(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, '#ff8800', 20); showOver(); return;
+    gameOver = true;
+    const deathColors = ['#ef5350', '#ff8800', '#ffca28', '#ffffff', '#ff66aa', '#aa44ff'];
+    deathColors.forEach(c => burst(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, c, 15));
+    sparkBurst(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, '#ffdd00', 30);
+    sparkBurst(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, '#ffffff', 15);
+    showOver(); return;
   }
   if (snake.some(s => s.x === head.x && s.y === head.y)) {
-    gameOver = true; burst(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, '#ef5350', 30); sparkBurst(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, '#ff8800', 20); showOver(); return;
+    gameOver = true;
+    const deathColors = ['#ef5350', '#ff8800', '#ffca28', '#ffffff', '#ff66aa', '#aa44ff'];
+    deathColors.forEach(c => burst(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, c, 15));
+    sparkBurst(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, '#ffdd00', 30);
+    sparkBurst(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, '#ffffff', 15);
+    showOver(); return;
   }
   snake.unshift(head);
 
@@ -315,11 +325,29 @@ function draw() {
   bg.addColorStop(0, S.sky0); bg.addColorStop(1, S.sky1);
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
-  // Dense grid
-  ctx.fillStyle = S.grid;
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-    ctx.beginPath(); ctx.arc(c * CELL + CELL / 2, r * CELL + CELL / 2, 1, 0, Math.PI * 2); ctx.fill();
+  // Glowing grid background
+  ctx.strokeStyle = S.grid;
+  ctx.lineWidth = 0.5;
+  for (let r = 0; r <= ROWS; r++) {
+    ctx.beginPath();
+    ctx.moveTo(0, r * CELL);
+    ctx.lineTo(W, r * CELL);
+    ctx.stroke();
   }
+  for (let c = 0; c <= COLS; c++) {
+    ctx.beginPath();
+    ctx.moveTo(c * CELL, 0);
+    ctx.lineTo(c * CELL, H);
+    ctx.stroke();
+  }
+  // Grid intersection glow dots
+  ctx.fillStyle = S.grid;
+  ctx.shadowColor = S.snake;
+  ctx.shadowBlur = 2;
+  for (let r = 0; r <= ROWS; r++) for (let c = 0; c <= COLS; c++) {
+    ctx.beginPath(); ctx.arc(c * CELL, r * CELL, 1, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.shadowBlur = 0;
 
   decorations.forEach(d => d.draw(S));
 
