@@ -8,7 +8,6 @@ canvas{border-radius:8px;display:block}
 .stat{background:rgba(0,0,0,.7);border:1px solid rgba(200,100,255,.2);padding:8px 20px;border-radius:8px;text-align:center}
 .stat .v{font-size:22px;font-weight:900;color:#cc66ff;text-shadow:0 0 10px rgba(200,100,255,.6)}
 .stat .l{font-size:10px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:2px}
-#next{width:36px;height:36px;border-radius:50%;border:none;font-size:20px;cursor:default}
 #overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(4px)}
 #overlay h1{font-size:42px;color:#cc66ff;text-shadow:0 0 20px rgba(200,100,255,.6);margin-bottom:8px}
 #overlay p{color:rgba(255,255,255,.4);margin-bottom:24px}
@@ -24,121 +23,326 @@ canvas{border-radius:8px;display:block}
   <p>瞄准点击发射 · 同色3个以上泡泡消除</p>
   <button id="start-btn" onclick="start()">▶ 开始</button>
 </div>
-<canvas id="c"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
 <script>
-// ============================================================
-// CLASSES
-// ============================================================
-class Bubble {
-  constructor(x, y, vx, vy, r, color) {
-    this.x = x; this.y = y; this.vx = vx; this.vy = vy;
-    this.r = r; this.color = color; this.active = true;
+// ═══════════════════════════════════════════════════════════
+//  THREE.JS SETUP
+// ═══════════════════════════════════════════════════════════
+const W = Math.min(480, window.innerWidth - 20);
+const H = Math.min(640, window.innerHeight - 40);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+document.body.insertBefore(renderer.domElement, document.getElementById('hud').nextSibling);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x06060f);
+
+const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 2000);
+camera.position.set(W / 2, H / 2, 600);
+camera.lookAt(W / 2, H / 2, 0);
+
+// ═══════════════════════════════════════════════════════════
+//  BACKGROUND: GRADIENT SHADER SPHERE
+// ═══════════════════════════════════════════════════════════
+const bgVertShader = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
-  update(W) {
-    this.x += this.vx; this.y += this.vy;
-    if (this.x < this.r || this.x > W - this.r) this.vx *= -1;
-    if (this.y < this.r) { this.active = false; return true; }
-    return false;
+`;
+const bgFragShader = `
+  varying vec2 vUv;
+  uniform float uTime;
+  void main() {
+    vec3 col1 = vec3(0.04, 0.02, 0.12);
+    vec3 col2 = vec3(0.02, 0.04, 0.18);
+    vec3 col3 = vec3(0.1, 0.0, 0.15);
+    float t = vUv.y;
+    vec3 col = mix(col1, col2, t);
+    col = mix(col, col3, sin(t * 3.14159 + uTime * 0.3) * 0.3 + 0.15);
+    // Nebula blobs
+    float n1 = sin(vUv.x * 4.0 + uTime * 0.1) * cos(vUv.y * 3.0 + uTime * 0.07);
+    float n2 = cos(vUv.x * 6.0 - uTime * 0.05) * sin(vUv.y * 5.0);
+    col += vec3(0.06, 0.0, 0.1) * max(0.0, n1 * n2);
+    col += vec3(0.0, 0.03, 0.08) * max(0.0, n2);
+    gl_FragColor = vec4(col, 1.0);
   }
-  draw(ctx) {
-    const g = ctx.createRadialGradient(this.x - this.r * 0.3, this.y - this.r * 0.3, 0, this.x, this.y, this.r);
-    g.addColorStop(0, this.color); g.addColorStop(1, 'rgba(0,0,0,0.3)');
-    ctx.shadowColor = this.color; ctx.shadowBlur = 10;
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.beginPath(); ctx.arc(this.x - this.r * 0.3, this.y - this.r * 0.3, this.r * 0.25, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
-  }
-  hitTest(gx, gy, r) {
-    return Math.sqrt((this.x - gx) ** 2 + (this.y - gy) ** 2) < (this.r + r) * 1.1;
-  }
+`;
+const bgGeo = new THREE.PlaneGeometry(W, H);
+const bgMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: { value: 0 } },
+  vertexShader: bgVertShader,
+  fragmentShader: bgFragShader,
+});
+const bgMesh = new THREE.Mesh(bgGeo, bgMat);
+bgMesh.position.set(W / 2, H / 2, -100);
+scene.add(bgMesh);
+
+// Stars
+const starGeo = new THREE.BufferGeometry();
+const starPositions = [];
+for (let i = 0; i < 80; i++) {
+  starPositions.push(Math.random() * W, Math.random() * H * 0.7, -50);
 }
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 2, transparent: true, opacity: 0.5 });
+const stars3D = new THREE.Points(starGeo, starMat);
+scene.add(stars3D);
 
-class Particle {
-  constructor(x, y, color) {
-    this.x = x; this.y = y; this.color = color;
-    const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 4;
-    this.vx = Math.cos(a) * sp; this.vy = Math.sin(a) * sp;
-    this.life = 1; this.decay = 0.03; this.r = 2 + Math.random() * 4;
-  }
-  update() {
-    this.x += this.vx; this.y += this.vy; this.vy += 0.1;
-    this.life -= this.decay;
-  }
-  draw(ctx) {
-    ctx.globalAlpha = Math.max(0, this.life);
-    ctx.fillStyle = this.color; ctx.shadowColor = this.color; ctx.shadowBlur = 5;
-    ctx.beginPath(); ctx.arc(this.x, this.y, this.r * this.life, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-  }
-  isDead() { return this.life <= 0; }
-}
-
-class Star {
-  constructor(W, H) {
-    this.x = Math.random() * W; this.y = Math.random() * H * 0.7;
-    this.r = 0.5 + Math.random() * 1.5;
-    this.twinkleSpeed = 0.02 + Math.random() * 0.05;
-    this.offset = Math.random() * Math.PI * 2;
-  }
-  draw(ctx, frame) {
-    const alpha = 0.3 + 0.7 * Math.abs(Math.sin(frame * this.twinkleSpeed + this.offset));
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-}
-
-// ============================================================
-// GAME
-// ============================================================
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-const W = Math.min(480, window.innerWidth - 20), H = Math.min(640, window.innerHeight - 40);
-canvas.width = W; canvas.height = H;
-
+// ═══════════════════════════════════════════════════════════
+//  BUBBLE MESHES (Three.js SphereGeometry)
+// ═══════════════════════════════════════════════════════════
 const COLS = 12, ROW_H = 32, R = 14;
-const COLORS = ['#ff4444', '#4fc3f7', '#66bb6a', '#ffca28', '#ab47bc', '#ff8800'];
-let grid, cur, next, score, high, over, bubbles, particles, stars, frame;
+const COLORS_HEX = [0xff4444, 0x4fc3f7, 0x66bb6a, 0xffca28, 0xab47bc, 0xff8800];
+const COLORS_CSS = ['#ff4444', '#4fc3f7', '#66bb6a', '#ffca28', '#ab47bc', '#ff8800'];
+
+const bubbleGroup = new THREE.Group();
+scene.add(bubbleGroup);
+const flyingBubbles = [];
+const floatingScoreTexts = [];
+
+function makeBubbleMesh(color) {
+  const geo = new THREE.SphereGeometry(R, 16, 12);
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: color,
+    roughness: 0.1,
+    metalness: 0.1,
+    transmission: 0.3,
+    transparent: true,
+    opacity: 0.9,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  // Highlight sphere
+  const hiGeo = new THREE.SphereGeometry(R * 0.35, 8, 6);
+  const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+  const hi = new THREE.Mesh(hiGeo, hiMat);
+  hi.position.set(-R * 0.3, R * 0.3, R * 0.5);
+  mesh.add(hi);
+  // Glow ring
+  const ringGeo = new THREE.RingGeometry(R + 2, R + 4, 24);
+  const ringMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2;
+  mesh.add(ring);
+  return mesh;
+}
+
+function addBubbleToGrid(r, c, color, hexColor) {
+  const offset = r % 2 === 1 ? R : 0;
+  const x = offset + c * R * 2 + R;
+  const y = r * ROW_H + ROW_H / 2;
+  const mesh = makeBubbleMesh(hexColor);
+  mesh.position.set(x, y, 0);
+  bubbleGroup.add(mesh);
+  return { r, c, x, y, color, hexColor, mesh };
+}
+
+function updateFlyingBubbles() {
+  for (let i = flyingBubbles.length - 1; i >= 0; i--) {
+    const fb = flyingBubbles[i];
+    fb.mesh.position.x += fb.vx;
+    fb.mesh.position.y += fb.vy;
+    fb.mesh.rotation.x += 0.05;
+    fb.mesh.rotation.z += 0.03;
+    if (fb.mesh.position.x < R || fb.mesh.position.x > W - R) fb.vx *= -1;
+    if (fb.mesh.position.y < R) {
+      scene.remove(fb.mesh);
+      snapBubble(fb.mesh.position.x, R, fb.color, fb.hexColor);
+      flyingBubbles.splice(i, 1);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FLOATING SCORE TEXT (canvas overlay)
+// ═══════════════════════════════════════════════════════════
+const scoreCanvas = document.createElement('canvas');
+scoreCanvas.width = W; scoreCanvas.height = H;
+scoreCanvas.style.position = 'fixed';
+scoreCanvas.style.top = '0'; scoreCanvas.style.left = '0';
+scoreCanvas.style.pointerEvents = 'none';
+scoreCanvas.style.zIndex = '15';
+document.body.appendChild(scoreCanvas);
+const scoreCtx = scoreCanvas.getContext('2d');
+
+const floatingTexts = [];
+function addFloatingText(x, y, text, color) {
+  floatingTexts.push({ x, y, text, color, life: 1.0, vy: -1.5 });
+}
+
+function updateFloatingTexts() {
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const ft = floatingTexts[i];
+    ft.y += ft.vy;
+    ft.life -= 0.02;
+    if (ft.life <= 0) floatingTexts.splice(i, 1);
+  }
+}
+
+function drawFloatingTexts() {
+  scoreCtx.clearRect(0, 0, W, H);
+  floatingTexts.forEach(ft => {
+    scoreCtx.globalAlpha = ft.life;
+    scoreCtx.fillStyle = ft.color;
+    scoreCtx.font = `bold 22px monospace`;
+    scoreCtx.textAlign = 'center';
+    scoreCtx.shadowColor = ft.color;
+    scoreCtx.shadowBlur = 10;
+    scoreCtx.fillText(ft.text, ft.x, ft.y);
+    scoreCtx.shadowBlur = 0;
+  });
+  scoreCtx.globalAlpha = 1;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PARTICLES (Three.js)
+// ═══════════════════════════════════════════════════════════
+const particleGeo = new THREE.SphereGeometry(1, 4, 3);
+const particleGroup = new THREE.Group();
+scene.add(particleGroup);
+const particlePool = [];
+
+function spawnExplosion(x, y, color) {
+  for (let i = 0; i < 20; i++) {
+    let mesh;
+    if (particlePool.length > 0) {
+      mesh = particlePool.pop();
+      mesh.material.color.set(color);
+      mesh.material.opacity = 1;
+      mesh.scale.setScalar(1);
+    } else {
+      const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+      mesh = new THREE.Mesh(particleGeo, mat);
+      particleGroup.add(mesh);
+    }
+    mesh.position.set(x, y, 5);
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 2 + Math.random() * 5;
+    mesh.userData = {
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 1,
+      life: 1.0, decay: 0.025 + Math.random() * 0.02
+    };
+    mesh.visible = true;
+  }
+  // Ring burst
+  for (let i = 0; i < 10; i++) {
+    const ringGeo = new THREE.RingGeometry(3, 5, 12);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.set(x, y, 5);
+    ring.rotation.x = Math.PI / 2;
+    const angle = (i / 10) * Math.PI * 2;
+    ring.userData = {
+      vx: Math.cos(angle) * 6, vy: Math.sin(angle) * 6,
+      life: 1.0, decay: 0.05, type: 'ring'
+    };
+    particleGroup.add(ring);
+  }
+}
+
+function updateParticles() {
+  for (let i = particleGroup.children.length - 1; i >= 0; i--) {
+    const p = particleGroup.children[i];
+    if (!p.userData) continue;
+    p.position.x += p.userData.vx;
+    p.position.y += p.userData.vy;
+    if (p.userData.type === 'ring') {
+      p.userData.life -= p.userData.decay;
+      p.scale.setScalar(1 + (1 - p.userData.life) * 3);
+      p.material.opacity = p.userData.life;
+    } else {
+      p.userData.vy -= 0.08;
+      p.userData.life -= p.userData.decay;
+      p.material.opacity = p.userData.life;
+      p.scale.setScalar(p.userData.life);
+    }
+    if (p.userData.life <= 0) {
+      particleGroup.remove(p);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  GAME LOGIC
+// ═══════════════════════════════════════════════════════════
+let grid, curColorIdx, nextColorIdx, score, high, over, frame, aimAngle;
 high = parseInt(localStorage.getItem('bubble_hs') || '0');
 document.getElementById('h').textContent = high;
-let aimAngle = -Math.PI / 2;
+const shooterX = W / 2, shooterY = H - 50;
+
+let shooterBubble = null;
+let nextBubble = null;
+
+function buildShooter() {
+  if (shooterBubble) scene.remove(shooterBubble);
+  if (nextBubble) scene.remove(nextBubble);
+  const hexColor = COLORS_HEX[curColorIdx];
+  shooterBubble = makeBubbleMesh(hexColor);
+  shooterBubble.position.set(shooterX, shooterY, 0);
+  scene.add(shooterBubble);
+  const nextHex = COLORS_HEX[nextColorIdx];
+  nextBubble = makeBubbleMesh(nextHex);
+  nextBubble.position.set(W - 50, H - 30, 0);
+  nextBubble.scale.setScalar(0.8);
+  scene.add(nextBubble);
+}
 
 function init() {
+  while (bubbleGroup.children.length) bubbleGroup.remove(bubbleGroup.children[0]);
+  while (flyingBubbles.length) { scene.remove(flyingBubbles.pop().mesh); }
+  while (particleGroup.children.length) particleGroup.remove(particleGroup.children[0]);
+  floatingTexts.length = 0;
+
   grid = []; frame = 0;
-  cur = COLORS[Math.floor(Math.random() * COLORS.length)];
-  next = COLORS[Math.floor(Math.random() * COLORS.length)];
-  score = 0; over = false; bubbles = []; particles = [];
-  stars = Array.from({ length: 60 }, () => new Star(W, H));
+  curColorIdx = Math.floor(Math.random() * COLORS_HEX.length);
+  nextColorIdx = Math.floor(Math.random() * COLORS_HEX.length);
+  score = 0; over = false;
+  aimAngle = -Math.PI / 2;
   document.getElementById('s').textContent = 0;
+
   for (let r = 0; r < 3; r++) {
     grid[r] = [];
     const offset = r % 2 === 1 ? R : 0;
     const cnt = r % 2 === 1 ? COLS - 1 : COLS;
     for (let c = 0; c < cnt; c++) {
-      grid[r][c] = { color: COLORS[Math.floor(Math.random() * COLORS.length)], x: offset + c * R * 2 + R, y: r * ROW_H + ROW_H / 2 };
+      const ci = Math.floor(Math.random() * COLORS_HEX.length);
+      grid[r][c] = addBubbleToGrid(r, c, COLORS_CSS[ci], COLORS_HEX[ci]);
     }
   }
   let total = 0; grid.forEach(row => row && row.forEach(b => b && total++));
   document.getElementById('bubbles-left').textContent = total;
+  buildShooter();
 }
 
-canvas.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  const shooterY = H - 50;
-  aimAngle = Math.atan2(shooterY - (e.clientY - rect.top), W / 2 - (e.clientX - rect.left));
+const canvas = document.createElement('canvas');
+canvas.width = W; canvas.height = H;
+canvas.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;z-index:5;';
+document.body.appendChild(canvas);
+const ctx2d = canvas.getContext('2d');
+
+renderer.domElement.addEventListener('mousemove', e => {
+  const rect = renderer.domElement.getBoundingClientRect();
+  aimAngle = Math.atan2(shooterY - (e.clientY - rect.top), shooterX - (e.clientX - rect.left));
 });
-canvas.addEventListener('click', shoot);
 
-function shoot() {
+renderer.domElement.addEventListener('click', () => {
   if (over) return;
-  const spd = 12, shooterY = H - 50;
-  bubbles.push(new Bubble(W / 2, shooterY, Math.cos(aimAngle) * spd, Math.sin(aimAngle) * spd, R, cur));
-  cur = next; next = COLORS[Math.floor(Math.random() * COLORS.length)];
-}
+  const spd = 12;
+  const mesh = makeBubbleMesh(COLORS_HEX[curColorIdx]);
+  mesh.position.set(shooterX, shooterY, 0);
+  scene.add(mesh);
+  flyingBubbles.push({ mesh, vx: Math.cos(aimAngle) * spd, vy: Math.sin(aimAngle) * spd, color: COLORS_CSS[curColorIdx], hexColor: COLORS_HEX[curColorIdx] });
+  curColorIdx = nextColorIdx;
+  nextColorIdx = Math.floor(Math.random() * COLORS_HEX.length);
+  buildShooter();
+});
 
-function snapBubble(x, y, color) {
+function snapBubble(x, y, color, hexColor) {
   let best = null, minD = Infinity;
   for (let r = 0; r < grid.length + 1; r++) {
     for (let c = 0; c < (r % 2 === 1 ? (grid[r] || []).length || COLS - 1 : COLS); c++) {
@@ -151,21 +355,27 @@ function snapBubble(x, y, color) {
   }
   if (!best) return;
   if (!grid[best.r]) grid[best.r] = [];
-  grid[best.r][best.c] = { color, x: best.bx, y: best.by };
+  const ci = COLORS_CSS.indexOf(color);
+  grid[best.r][best.c] = addBubbleToGrid(best.r, best.c, color, hexColor);
+
   const matches = findMatches(best.r, best.c, color);
   if (matches.length >= 3) {
     matches.forEach(({ r, c }) => {
       if (grid[r] && grid[r][c]) {
-        spawnExplosion(grid[r][c].x, grid[r][c].y, color);
+        spawnExplosion(grid[r][c].x, grid[r][c].y, hexColor);
+        addFloatingText(grid[r][c].x, grid[r][c].y - 10, '+10', COLORS_CSS[ci >= 0 ? ci : 0]);
+        bubbleGroup.remove(grid[r][c].mesh);
         grid[r][c] = null;
         score += 10;
       }
     });
     score += 20;
-    // Drop floating bubbles
+    addFloatingText(best.bx, best.by - 20, `+${20 + matches.length * 10}`, '#ffffff');
+
+    // Drop floating
     const connected = new Set();
-    const top = grid[0] || [];
     const queue = [];
+    const top = grid[0] || [];
     top.forEach((b, c) => { if (b) queue.push([0, c]); });
     while (queue.length) {
       const [r, c] = queue.shift();
@@ -174,33 +384,34 @@ function snapBubble(x, y, color) {
       const br = grid[r];
       if (br && br[c]) {
         connected.add(key);
-        const nb = [[r + 1, c], [r + 1, c - 1], [r + 1, c + 1]];
-        nb.forEach(([nr, nc]) => {
-          const nb2 = grid[nr];
-          if (nb2 && nb2[nc]) queue.push([nr, nc]);
-        });
+        [[r + 1, c], [r + 1, c - 1], [r + 1, c + 1]].forEach(([nr, nc]) => queue.push([nr, nc]));
       }
     }
     for (let r = 0; r < grid.length; r++) {
       for (let c = 0; c < (grid[r] || []).length; c++) {
         if (grid[r][c] && !connected.has(`${r},${c}`)) {
-          spawnExplosion(grid[r][c].x, grid[r][c].y, grid[r][c].color);
+          spawnExplosion(grid[r][c].x, grid[r][c].y, grid[r][c].hexColor);
+          addFloatingText(grid[r][c].x, grid[r][c].y, '+30', '#ffdd00');
+          bubbleGroup.remove(grid[r][c].mesh);
           grid[r][c] = null;
           score += 30;
         }
       }
     }
   }
-  // Expand grid if needed
+
+  // Expand grid
   while (grid.length && grid[grid.length - 1].some(b => b !== null)) {
     const r = grid.length;
     grid[r] = [];
     const offset = r % 2 === 1 ? R : 0;
     const cnt = r % 2 === 1 ? COLS - 1 : COLS;
     for (let c = 0; c < cnt; c++) {
-      grid[r][c] = { color: COLORS[Math.floor(Math.random() * COLORS.length)], x: offset + c * R * 2 + R, y: r * ROW_H + ROW_H / 2 };
+      const ci = Math.floor(Math.random() * COLORS_HEX.length);
+      grid[r][c] = addBubbleToGrid(r, c, COLORS_CSS[ci], COLORS_HEX[ci]);
     }
   }
+
   let totalBubbles = 0;
   grid.forEach(row => row && row.forEach(b => b && totalBubbles++));
   document.getElementById('bubbles-left').textContent = totalBubbles;
@@ -228,91 +439,65 @@ function findMatches(startR, startC, color) {
   return result;
 }
 
-function spawnExplosion(x, y, color) {
-  for (let i = 0; i < 14; i++) particles.push(new Particle(x, y, color));
-  // Extra ring particles
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    particles.push(new Particle(x, y, '#ffffff'));
-    particles[particles.length - 1].vx = Math.cos(a) * 6;
-    particles[particles.length - 1].vy = Math.sin(a) * 6;
-    particles[particles.length - 1].r = 1.5;
-    particles[particles.length - 1].decay = 0.05;
-  }
-}
-
 function update() {
   frame++;
-  const shooterY = H - 50;
-  for (const b of bubbles) {
-    if (!b.active) continue;
-    const done = b.update(W);
-    if (done) { snapBubble(b.x, R, cur); continue; }
+  bgMat.uniforms.uTime.value = frame * 0.016;
+
+  // Animate shooter bubble
+  if (shooterBubble) {
+    shooterBubble.position.x = shooterX + Math.cos(aimAngle) * 3;
+    shooterBubble.position.y = shooterY + Math.sin(aimAngle) * 3;
+    shooterBubble.rotation.x += 0.02;
+    shooterBubble.rotation.y += 0.01;
+  }
+
+  // Flying bubbles hit test
+  for (const fb of flyingBubbles) {
     for (let r = 0; r < grid.length; r++) {
       for (let c = 0; c < (grid[r] || []).length; c++) {
         const g = grid[r][c];
         if (!g) continue;
-        if (b.hitTest(g.x, g.y, R)) { b.active = false; snapBubble(b.x, b.y, cur); break; }
+        const dx = fb.mesh.position.x - g.x;
+        const dy = fb.mesh.position.y - g.y;
+        if (Math.sqrt(dx * dx + dy * dy) < R * 2.2) {
+          fb.mesh.visible = false;
+          snapBubble(fb.mesh.position.x, fb.mesh.position.y, fb.color, fb.hexColor);
+        }
       }
     }
   }
-  bubbles = bubbles.filter(b => b.active);
-  particles.forEach(p => p.update());
-  particles = particles.filter(p => !p.isDead());
+
+  updateFlyingBubbles();
+  updateParticles();
+  updateFloatingTexts();
 }
 
-function draw() {
-  ctx.fillStyle = '#06060f'; ctx.fillRect(0, 0, W, H);
-  // Star field
-  stars.forEach(s => s.draw(ctx, frame));
-  // Nebula glow
-  const neb = ctx.createRadialGradient(W * 0.3, H * 0.2, 0, W * 0.3, H * 0.2, 200);
-  neb.addColorStop(0, 'rgba(100,0,150,0.15)'); neb.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = neb; ctx.fillRect(0, 0, W, H);
-  const neb2 = ctx.createRadialGradient(W * 0.7, H * 0.6, 0, W * 0.7, H * 0.6, 180);
-  neb2.addColorStop(0, 'rgba(0,80,150,0.1)'); neb2.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = neb2; ctx.fillRect(0, 0, W, H);
-  // Grid bubbles
-  grid.forEach((row, r) => {
-    if (!row) return;
-    row.forEach((b, c) => {
-      if (!b) return;
-      const g = ctx.createRadialGradient(b.x - b.r * 0.3, b.y - b.r * 0.3, 0, b.x, b.y, b.r);
-      g.addColorStop(0, b.color); g.addColorStop(1, 'rgba(0,0,0,0.3)');
-      ctx.shadowColor = b.color; ctx.shadowBlur = 8;
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
-      ctx.beginPath(); ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.25, 0, Math.PI * 2); ctx.fill();
-    });
-  });
-  // Active bubbles
-  bubbles.forEach(b => b.draw(ctx));
-  // Aim line
-  const shooterY = H - 50;
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 4]);
-  ctx.beginPath(); ctx.moveTo(W / 2, shooterY);
-  ctx.lineTo(W / 2 + Math.cos(aimAngle) * 200, shooterY + Math.sin(aimAngle) * 200); ctx.stroke();
-  ctx.setLineDash([]);
-  // Current bubble
-  const g = ctx.createRadialGradient(W / 2 - R * 0.3, shooterY - R * 0.3, 0, W / 2, shooterY, R);
-  g.addColorStop(0, cur); g.addColorStop(1, 'rgba(0,0,0,0.3)');
-  ctx.fillStyle = g; ctx.shadowColor = cur; ctx.shadowBlur = 15;
-  ctx.beginPath(); ctx.arc(W / 2, shooterY, R, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-  // Next bubble
-  const ng = ctx.createRadialGradient(W - 50 - R * 0.3, H - 30 - R * 0.3, 0, W - 50, H - 30, R);
-  ng.addColorStop(0, next); ng.addColorStop(1, 'rgba(0,0,0,0.3)');
-  ctx.fillStyle = ng; ctx.beginPath(); ctx.arc(W - 50, H - 30, R, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '10px monospace'; ctx.fillText('NEXT', W - 60, H - 48);
-  // Particles
-  particles.forEach(p => p.draw(ctx));
+function drawAimLine() {
+  ctx2d.clearRect(0, 0, W, H);
+  ctx2d.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx2d.lineWidth = 1.5;
+  ctx2d.setLineDash([6, 4]);
+  ctx2d.beginPath();
+  ctx2d.moveTo(shooterX, shooterY);
+  ctx2d.lineTo(shooterX + Math.cos(aimAngle) * 300, shooterY + Math.sin(aimAngle) * 300);
+  ctx2d.stroke();
+  ctx2d.setLineDash([]);
 }
 
-function loop() { update(); draw(); requestAnimationFrame(loop); }
 function start() {
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('overlay').querySelector('h1').textContent = '🫧 泡泡龙';
-  init(); loop();
+  init();
 }
-document.getElementById('overlay').style.display = 'flex'; init(); loop();
+
+function animate() {
+  requestAnimationFrame(animate);
+  update();
+  drawAimLine();
+  drawFloatingTexts();
+  renderer.render(scene, camera);
+}
+
+// Show start screen — game starts on button click
+document.getElementById('overlay').style.display = 'flex';
 </script></body></html>
