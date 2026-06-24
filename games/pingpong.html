@@ -1,11 +1,20 @@
 <!DOCTYPE html>
 <html lang="zh"><head><meta charset="UTF-8"><title>🏓 弹球对战</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#050810;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 30px rgba(0,212,255,0.2)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:16px;z-index:10;display:flex;gap:20px}</style></head>
+<style>*{margin:0;padding:0;box-sizing:border-box}#overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(6px)}
+#overlay h1{font-size:42px;margin-bottom:8px;text-shadow:0 0 20px rgba(0,200,255,.5)}
+#overlay p{color:rgba(255,255,255,.4);margin-bottom:24px}
+#start-btn{background:#00d4ff;color:#000;padding:14px 48px;border:none;border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;font-family:monospace;box-shadow:0 0 30px rgba(0,200,255,.4)}
+body{background:#050810;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 30px rgba(0,212,255,0.2)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:16px;z-index:10;display:flex;gap:20px}</style></head>
 <body>
 <div id="ui">
   <span style="color:#00d4ff">🔵 玩家1: W/S</span>
   <span style="color:#ff6b6b">🔴 玩家2: ↑/↓</span>
   <span id="score">0 - 0</span>
+</div>
+<div id="overlay">
+  <h1>🏓 弹球对战</h1>
+  <p>🔵 W/S 玩家1 &nbsp;|&nbsp; 🔴 ↑/↓ 玩家2 &nbsp;|&nbsp; 空格发球</p>
+  <button id="start-btn" onclick="doStart()">▶ 开始</button>
 </div>
 <canvas id="c"></canvas>
 <script>
@@ -241,7 +250,16 @@ function draw() {
   }
 }
 
-function loop() { update(); draw(); requestAnimationFrame(loop); }
-init(); loop();
+var started = false;
+function doStart() {
+  started = true;
+  document.getElementById('overlay').style.display = 'none';
+}
+function loop() {
+  if (!started) { draw(); requestAnimationFrame(loop); return; }
+  update(); draw(); requestAnimationFrame(loop);
+}
+var started = false;
+loop();
 </script>
 </body></html>
