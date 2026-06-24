@@ -44,23 +44,16 @@ const camera3d = new THREE.PerspectiveCamera(50, window.innerWidth / window.inne
 camera3d.position.set(0, 5, 20);
 camera3d.lookAt(0, 0, 0);
 
-// 3D Grid Lines
 function makeGridLines() {
   const lines = [];
   for (let i = -8; i <= 8; i++) {
     const mat = new THREE.LineBasicMaterial({ color: 0x3a2a2a, transparent: true, opacity: 0.4 });
-    const geo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(i * 1.2, -15, -1),
-      new THREE.Vector3(i * 1.2, 15, -1)
-    ]);
+    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(i * 1.2, -15, -1), new THREE.Vector3(i * 1.2, 15, -1)]);
     lines.push(new THREE.Line(geo, mat));
   }
   for (let i = -8; i <= 8; i++) {
     const mat = new THREE.LineBasicMaterial({ color: 0x3a2a2a, transparent: true, opacity: 0.4 });
-    const geo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(-15, i * 1.2, -1),
-      new THREE.Vector3(15, i * 1.2, -1)
-    ]);
+    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-15, i * 1.2, -1), new THREE.Vector3(15, i * 1.2, -1)]);
     lines.push(new THREE.Line(geo, mat));
   }
   return lines;
@@ -68,7 +61,6 @@ function makeGridLines() {
 const gridLines3d = makeGridLines();
 gridLines3d.forEach(l => scene3d.add(l));
 
-// Floating ambient spheres
 const spheres = [];
 for (let i = 0; i < 15; i++) {
   const geo = new THREE.SphereGeometry(0.08 + Math.random() * 0.12, 8, 8);
@@ -120,25 +112,65 @@ class Stone {
   constructor(row, col, player) {
     this.row = row; this.col = col; this.player = player;
     this.x = PAD + col * CELL; this.y = PAD + row * CELL;
-    this.scale = 0; this.targetScale = 1; this.rotationAngle = 0;
+    this.scale = 0; this.targetScale = 1;
   }
   tick() {
     this.scale += (this.targetScale - this.scale) * 0.3;
-    this.rotationAngle += 0.05 * (1 - this.scale);
   }
   draw() {
     const r = CELL * 0.42 * this.scale;
     if (r < 0.5) return;
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.shadowColor = this.player === 'B' ? '#555' : '#fff'; ctx.shadowBlur = 8;
-    const g = ctx.createRadialGradient(-3, -3, 0, 0, 0, r);
-    if (this.player === 'B') { g.addColorStop(0, '#888'); g.addColorStop(1, '#111'); }
-    else { g.addColorStop(0, '#fff'); g.addColorStop(1, '#ccc'); }
+    // Shadow
+    ctx.shadowColor = this.player === 'B' ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.3)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
+    const g = ctx.createRadialGradient(-r * 0.25, -r * 0.25, 0, 0, 0, r);
+    if (this.player === 'B') { g.addColorStop(0, '#999'); g.addColorStop(0.4, '#444'); g.addColorStop(1, '#0a0a0a'); }
+    else { g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#e8e8e8'); g.addColorStop(1, '#cccccc'); }
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = this.player === 'B' ? '#333' : '#999'; ctx.lineWidth = 0.5; ctx.stroke();
-    ctx.shadowBlur = 0;
+    // Ring border
+    ctx.strokeStyle = this.player === 'B' ? '#222' : '#aaa';
+    ctx.lineWidth = 1; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    ctx.stroke();
+    // Gloss highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath(); ctx.arc(-r * 0.3, -r * 0.3, r * 0.25, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+}
+
+// Ripple animation on piece placement
+class Ripple {
+  constructor(x, y, color) {
+    this.x = x; this.y = y; this.color = color;
+    this.radius = 5; this.maxRadius = CELL * 0.9;
+    this.alpha = 0.8; this.done = false;
+  }
+  tick() {
+    this.radius += (this.maxRadius - this.radius) * 0.15;
+    this.alpha -= 0.04;
+    if (this.alpha <= 0) this.done = true;
+  }
+  draw() {
+    if (this.alpha <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    // Second inner ring
+    ctx.globalAlpha = this.alpha * 0.4;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.radius * 0.6, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.restore();
   }
 }
@@ -157,6 +189,7 @@ class Particle {
     ctx.beginPath(); ctx.arc(this.x, this.y, this.r * this.life, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0; ctx.globalAlpha = 1;
   }
+  isDead() { return this.life <= 0; }
 }
 
 class BurstParticle {
@@ -179,11 +212,11 @@ class BurstParticle {
 // ═══════════════════════════════════════════════════════════
 //  GAME STATE
 // ═══════════════════════════════════════════════════════════
-let board, currentPlayer, gameOver, stones, particles, burstParticles, winLine;
+let board, currentPlayer, gameOver, stones, particles, burstParticles, ripples, winLine;
 
 function init() {
   board = Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
-  currentPlayer = 'B'; gameOver = false; stones = []; particles = []; burstParticles = []; winLine = null;
+  currentPlayer = 'B'; gameOver = false; stones = []; particles = []; burstParticles = []; ripples = []; winLine = null;
   updateUI();
 }
 
@@ -201,36 +234,66 @@ function burstHeavy(x, y, color, count) { for (let i = 0; i < count; i++) burstP
 //  RENDER
 // ═══════════════════════════════════════════════════════════
 function drawBackground() {
-  // Wood grain with gradient
+  // Wood grain gradient board
   const woodGrad = ctx.createLinearGradient(0, 0, W, H);
-  woodGrad.addColorStop(0, '#1a0d0d'); woodGrad.addColorStop(0.5, '#1e0e0e'); woodGrad.addColorStop(1, '#1a0d0d');
-  ctx.fillStyle = woodGrad; ctx.fillRect(0, 0, W, H);
+  woodGrad.addColorStop(0, '#2d1a0d');
+  woodGrad.addColorStop(0.2, '#3d2314');
+  woodGrad.addColorStop(0.5, '#4a2c18');
+  woodGrad.addColorStop(0.8, '#3d2314');
+  woodGrad.addColorStop(1, '#2d1a0d');
+  ctx.fillStyle = woodGrad;
+  ctx.fillRect(0, 0, W, H);
 
-  ctx.strokeStyle = 'rgba(80,40,20,0.1)'; ctx.lineWidth = 1;
-  for (let y = 0; y < H; y += 4) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  // Subtle wood grain lines
+  ctx.strokeStyle = 'rgba(90, 50, 20, 0.12)'; ctx.lineWidth = 1;
+  for (let y = 0; y < H; y += 5) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + Math.sin(y * 0.1) * 2);
+    ctx.lineTo(W, y + Math.sin(y * 0.1 + 1) * 2);
+    ctx.stroke();
+  }
 
-  ctx.strokeStyle = '#3a2a2a'; ctx.lineWidth = 1;
+  // Board inner border (inset shadow effect)
+  const boardLeft = PAD - 2, boardTop = PAD - 2;
+  const boardSize = (SIZE - 1) * CELL + 4;
+  ctx.strokeStyle = '#5a3515'; ctx.lineWidth = 3;
+  ctx.strokeRect(boardLeft, boardTop, boardSize, boardSize);
+
+  // Grid lines
+  ctx.strokeStyle = '#1a0a00'; ctx.lineWidth = 1.2;
   for (let i = 0; i < SIZE; i++) {
     ctx.beginPath(); ctx.moveTo(PAD + i * CELL, PAD); ctx.lineTo(PAD + i * CELL, PAD + (SIZE - 1) * CELL); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(PAD, PAD + i * CELL); ctx.lineTo(PAD + (SIZE - 1) * CELL, PAD + i * CELL); ctx.stroke();
   }
 
+  // Star points (天元和星位)
   const stars = [[3, 3], [3, 11], [7, 7], [11, 3], [11, 11]];
   stars.forEach(([r, c]) => {
-    ctx.fillStyle = '#5a3a3a';
-    ctx.beginPath(); ctx.arc(PAD + c * CELL, PAD + r * CELL, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#6a3a1a';
+    ctx.beginPath(); ctx.arc(PAD + c * CELL, PAD + r * CELL, 5, 0, Math.PI * 2); ctx.fill();
   });
 
+  // Last move indicator
   if (stones.length > 0) {
     const last = stones[stones.length - 1];
-    ctx.strokeStyle = last.player === 'B' ? '#ff4444' : '#4488ff'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(last.x, last.y, CELL * 0.15, 0, Math.PI * 2); ctx.stroke();
+    const glowColor = last.player === 'B' ? '#ff4444' : '#4488ff';
+    ctx.strokeStyle = glowColor; ctx.lineWidth = 2.5;
+    ctx.shadowColor = glowColor; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.arc(last.x, last.y, CELL * 0.18, 0, Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = 0;
   }
 
+  // Win line with golden glow
   if (winLine) {
     const [r1, c1, r2, c2] = winLine;
-    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 4;
-    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 15;
+    // Glow aura
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 8;
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 30;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath(); ctx.moveTo(PAD + c1 * CELL, PAD + r1 * CELL); ctx.lineTo(PAD + c2 * CELL, PAD + r2 * CELL); ctx.stroke();
+    // Core line
+    ctx.globalAlpha = 1; ctx.lineWidth = 4;
+    ctx.shadowBlur = 15;
     ctx.beginPath(); ctx.moveTo(PAD + c1 * CELL, PAD + r1 * CELL); ctx.lineTo(PAD + c2 * CELL, PAD + r2 * CELL); ctx.stroke();
     ctx.shadowBlur = 0;
   }
@@ -238,16 +301,23 @@ function drawBackground() {
 
 function draw() {
   drawBackground();
+
+  // Ripples (before stones so they appear underneath)
+  ripples.forEach(r => { r.tick(); r.draw(); });
+  ripples = ripples.filter(r => !r.done);
+
   stones.forEach(s => { s.tick(); s.draw(); });
+
   particles.forEach(p => { p.tick(); p.draw(); });
-  particles = particles.filter(p => p.life > 0);
+  particles = particles.filter(p => !p.isDead());
+
   burstParticles.forEach(p => { p.tick(); p.draw(); });
   burstParticles = burstParticles.filter(p => !p.isDead());
 
   if (gameOver) {
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#ffd700'; ctx.font = 'bold 28px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 15;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ffd700'; ctx.font = 'bold 30px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 25;
     ctx.fillText(`${currentPlayer === 'B' ? '⚫' : '⚪'} 五子连珠获胜!`, W / 2, H / 2);
     ctx.shadowBlur = 0;
   }
@@ -279,25 +349,30 @@ canvas.addEventListener('click', e => {
   board[row][col] = currentPlayer;
   const stone = new Stone(row, col, currentPlayer);
   stones.push(stone);
+
+  const rippleColor = currentPlayer === 'B' ? 'rgba(255,255,255,0.7)' : 'rgba(180,180,180,0.7)';
+  ripples.push(new Ripple(stone.x, stone.y, rippleColor));
+
   burst(stone.x, stone.y, currentPlayer === 'B' ? '#555' : '#fff', 8);
   burstHeavy(stone.x, stone.y, currentPlayer === 'B' ? '#888' : '#ffffff', 6);
 
   if (checkWin(row, col)) {
     gameOver = true;
     document.getElementById('info').textContent = `${currentPlayer === 'B' ? '⚫ 黑棋' : '⚪ 白棋'} 五连!`;
-    burst(stone.x, stone.y, '#ffd700', 30);
-    burstHeavy(stone.x, stone.y, '#ffaa00', 25);
+    burst(stone.x, stone.y, '#ffd700', 35);
+    burstHeavy(stone.x, stone.y, '#ffaa00', 30);
+    // Golden flash lines
+    for (let i = 0; i < 8; i++) burstHeavy(stone.x, stone.y, '#ffee44', 5);
   } else {
     currentPlayer = currentPlayer === 'B' ? 'W' : 'B';
     updateUI();
   }
 });
 
-function reset() { init(); draw(); }
+function reset() { init(); }
 
-// Start paused
 document.getElementById("start-btn").addEventListener("click", function() {
-  document.getElementById("overlay").style.display = "none";
+  document.getElementById("overlay").style.display = 'none';
   init();
 });
 draw(); init();
