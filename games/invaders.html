@@ -21,117 +21,679 @@ canvas{display:block;border-radius:8px}
 <div id="overlay">
   <h1>👾 太空侵略者</h1>
   <p>← → 移动 · 空格射击 · 消灭外星人</p>
-  <button id="start-btn" onclick="start()">▶ 开始</button>
+  <button id="start-btn" onclick="game.start()">▶ 开始</button>
 </div>
 <canvas id="c"></canvas>
 <script>
-const canvas=document.getElementById('c');
-const ctx=canvas.getContext('2d');
-const W=Math.min(600,window.innerWidth-20),H=Math.min(500,window.innerHeight-80);
-canvas.width=W;canvas.height=H;
-const ALIEN_ROWS=4,ALIEN_COLS=8;
-let aliens=[],bullets=[],player,bullets2=[],particles=[],score,lives,wave,frame,gameOver;
-let alienDir=1,alienDrop=0,alienShootTimer=0,high;
-high=parseInt(localStorage.getItem('invaders_hs')||'0');
-function init(){
-  aliens=[];bullets=[];bullets2=[];particles=[];frame=0;score=0;lives=3;wave=1;alienDir=1;alienDrop=0;alienShootTimer=0;gameOver=false;
-  player={x:W/2,y:H-50,w:40,h:20};
-  const alienTypes=[['#00ff88','#ff44ff'],['#ff8800','#ff4444'],['#4fc3f7','#ffca28']];
-  for(let r=0;r<ALIEN_ROWS;r++)for(let c=0;c<ALIEN_COLS;c++){
-    const t=r<1?0:r<2?1:2;
-    const cols=alienTypes[t];
-    aliens.push({x:50+c*50,y:60+r*45,w:30,h:25,color:cols[0],color2:cols[1],type:t,phase:Math.random()*Math.PI*2});}
-  document.getElementById('s').textContent=0;document.getElementById('lives').textContent=3;document.getElementById('wave').textContent=1;}
-function spawnParticles(x,y,color,count=15){for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2;const sp=2+Math.random()*4;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,decay:.03,color,r:2+Math.random()*4});}}
-document.addEventListener('keydown',e=>{
-  if(e.code==='ArrowLeft'||e.code==='KeyA')player.x=Math.max(20,player.x-8);
-  if(e.code==='ArrowRight'||e.code==='KeyD')player.x=Math.min(W-20,player.x+8);
-  if(e.code==='Space'){e.preventDefault();bullets2.push({x:player.x,y:player.y-20,vx:0,vy:-10});}
-});
-function start(){
-  document.getElementById('overlay').style.display='none';
-  document.getElementById('overlay').querySelector('h1').textContent='👾 太空侵略者';
-  init();loop();}
-function update(){
-  if(gameOver)return;
-  frame++;
-  // Aliens move
-  const speed=2+wave;
-  aliens.forEach(a=>{a.x+=alienDir*speed;a.phase+=.05;a.y+=alienDrop;});
-  alienDrop=0;
-  const minX=Math.min(...aliens.map(a=>a.x)),maxX=Math.max(...aliens.map(a=>a.x+a.w));
-  if(maxX>=W-10||minX<=10){alienDir*=-1;alienDrop=10;}
-  if(frame%Math.max(20,60-wave*5)===0){aliens.push({x:Math.random()*(W-60),y:-30,w:30,h:25,color:'#ff44ff',color2:'#00ff88',type:1,phase:0});}
-  // Alien shoots
-  alienShootTimer++;
-  if(alienShootTimer>Math.max(30,80-wave*5)&&aliens.length>0){
-    alienShootTimer=0;
-    const shooter=aliens[Math.floor(Math.random()*aliens.length)];
-    bullets.push({x:shooter.x+shooter.w/2,y:shooter.y+shooter.h,vx:(Math.random()-.5)*2,vy:4+wave*.5});}
-  // Move bullets
-  bullets2.forEach(b=>b.y+=b.vy);
-  bullets2=bullets2.filter(b=>b.y>-10);
-  bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;});
-  bullets=bullets.filter(b=>b.y<H);
-  // Collision bullets2 vs aliens
-  for(let i=bullets2.length-1;i>=0;i--){
-    const b=bullets2[i];
-    for(let j=aliens.length-1;j>=0;j--){
-      const a=aliens[j];
-      if(b.x>a.x&&b.x<a.x+a.w&&b.y>a.y&&b.y<a.y+a.h){
-        spawnParticles(a.x+a.w/2,a.y+a.h/2,a.color,20);
-        score+=10*(3-a.type);aliens.splice(j,1);bullets2.splice(i,1);
-        document.getElementById('s').textContent=score;if(score>high){high=score;localStorage.setItem('invaders_hs',high);}break;}}}
-  // Alien hits player
-  for(const b of bullets){
-    if(Math.abs(b.x-player.x)<player.w/2&&Math.abs(b.y-player.y)<player.h/2){
-      lives--;document.getElementById('lives').textContent=lives;
-      spawnParticles(player.x,player.y,'#ff4444',20);bullets.splice(bullets.indexOf(b),1);
-      if(lives<=0){gameOver=true;document.getElementById('overlay').querySelector('h1').textContent='💥 游戏结束';document.getElementById('overlay').style.display='flex';return;}}}
-  if(aliens.length===0){wave++;document.getElementById('wave').textContent=wave;for(let r=0;r<ALIEN_ROWS;r++)for(let c=0;c<ALIEN_COLS;c++){aliens.push({x:50+c*50,y:60+r*45,w:30,h:25,color:'#00ff88',color2:'#ff44ff',type:0,phase:Math.random()*Math.PI});}}
-  // Particles
-  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life-=p.decay;});particles=particles.filter(p=>p.life>0);}
-function draw(){
-  ctx.fillStyle='#000008';ctx.fillRect(0,0,W,H);
-  // Stars
-  ctx.fillStyle='rgba(255,255,255,.4)';
-  for(let i=0;i<60;i++){const sx=(i*47)%W,sy=(i*73)%H;ctx.beginPath();ctx.arc(sx,sy,.8,0,Math.PI*2);ctx.fill();}
-  // Ground
-  ctx.fillStyle='#001100';ctx.fillRect(0,H-30,W,30);
-  ctx.strokeStyle='#00ff44';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,H-30);ctx.lineTo(W,H-30);ctx.stroke();
-  // Player
-  ctx.fillStyle='#00c8ff';ctx.shadowColor='#00c8ff';ctx.shadowBlur=15;
-  ctx.beginPath();ctx.moveTo(player.x,player.y-player.h/2);ctx.lineTo(player.x-player.w/2,player.y+player.h/2);ctx.lineTo(player.x+player.w/2,player.y+player.h/2);ctx.closePath();ctx.fill();
-  // Engine
-  ctx.fillStyle='#ff8800';ctx.beginPath();ctx.arc(player.x,player.y+player.h/2,5+Math.random()*3,0,Math.PI*2);ctx.fill();
-  ctx.shadowBlur=0;
-  // Bullets
-  bullets2.forEach(b=>{ctx.fillStyle='#00ffff';ctx.shadowColor='#00ffff';ctx.shadowBlur=8;ctx.fillRect(b.x-2,b.y,4,12);ctx.shadowBlur=0;});
-  bullets.forEach(b=>{ctx.fillStyle='#ff4444';ctx.shadowColor='#ff4444';ctx.shadowBlur=6;ctx.beginPath();ctx.arc(b.x,b.y,4,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;});
-  // Aliens
-  aliens.forEach(a=>{
-    ctx.shadowColor=a.color;ctx.shadowBlur=10;
-    const wobble=Math.sin(a.phase)*3;
-    ctx.fillStyle=a.color;
-    // Body
-    ctx.beginPath();ctx.roundRect(a.x,a.y+wobble,a.w,a.h*.5,4);ctx.fill();
-    // Head
-    ctx.beginPath();ctx.roundRect(a.x+a.w*.1,a.y+wobble-a.h*.3,a.w*.8,a.h*.35,3);ctx.fill();
-    // Eyes
-    ctx.fillStyle='#fff';
-    ctx.beginPath();ctx.arc(a.x+a.w*.3,a.y+wobble-a.h*.1,3,0,Math.PI*2);ctx.fill();
-    ctx.beginPath();ctx.arc(a.x+a.w*.7,a.y+wobble-a.h*.1,3,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#000';
-    ctx.beginPath();ctx.arc(a.x+a.w*.3+1,a.y+wobble-a.h*.1+1,1.5,0,Math.PI*2);ctx.fill();
-    ctx.beginPath();ctx.arc(a.x+a.w*.7+1,a.y+wobble-a.h*.1+1,1.5,0,Math.PI*2);ctx.fill();
-    // Antenna
-    ctx.strokeStyle=a.color;ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(a.x+a.w*.2,a.y+wobble-a.h*.3);ctx.lineTo(a.x+a.w*.1,a.y+wobble-a.h*.5);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(a.x+a.w*.8,a.y+wobble-a.h*.3);ctx.lineTo(a.x+a.w*.9,a.y+wobble-a.h*.5);ctx.stroke();
-    ctx.shadowBlur=0;});
-  // Particles
-  particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=5;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});
-  ctx.globalAlpha=1;ctx.shadowBlur=0;}
-function loop(){update();draw();requestAnimationFrame(loop);}
-document.getElementById('overlay').style.display='flex';init();loop();
+// ─── Scene Manager ───────────────────────────────────────────────
+class SceneManager {
+  constructor(ctx, W, H) {
+    this.ctx = ctx;
+    this.W = W; this.H = H;
+    this.stars = [];
+    this.buildings = [];
+    this.cityLights = [];
+    this._buildStars();
+    this._buildCity();
+  }
+
+  _buildStars() {
+    this.stars = [];
+    for (let i = 0; i < 120; i++) {
+      this.stars.push({
+        x: Math.random() * this.W,
+        y: Math.random() * (this.H - 80),
+        r: Math.random() * 1.5 + 0.3,
+        speed: Math.random() * 0.3 + 0.05,
+        phase: Math.random() * Math.PI * 2,
+        twinkle: Math.random() > 0.7
+      });
+    }
+  }
+
+  _buildCity() {
+    this.buildings = [];
+    this.cityLights = [];
+    let x = 0;
+    while (x < this.W) {
+      const bw = 20 + Math.random() * 40;
+      const bh = 30 + Math.random() * 60;
+      const windows = [];
+      for (let wx = 4; wx < bw - 4; wx += 7) {
+        for (let wy = 4; wy < bh - 4; wy += 9) {
+          if (Math.random() > 0.35) {
+            windows.push({ x: wx, y: wy, on: Math.random() > 0.3 });
+          }
+        }
+      }
+      this.buildings.push({ x, y: this.H - 30 - bh, w: bw, h: bh, windows });
+      this.cityLights.push(...windows.filter(w => w.on).map(w => ({
+        x: x + w.x + 2, y: this.H - 30 - bh + w.y + 2, flicker: Math.random() * Math.PI * 2
+      })));
+      x += bw + Math.random() * 8;
+    }
+  }
+
+  update(frame) {
+    this.stars.forEach(s => {
+      if (s.twinkle) s.phase += 0.08;
+    });
+    this.cityLights.forEach(l => { l.flicker += 0.05; });
+  }
+
+  draw(frame) {
+    const ctx = this.ctx;
+    // Sky gradient
+    const sky = ctx.createLinearGradient(0, 0, 0, this.H - 30);
+    sky.addColorStop(0, '#000008');
+    sky.addColorStop(1, '#0a001a');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, this.W, this.H - 30);
+
+    // Stars
+    this.stars.forEach(s => {
+      const alpha = s.twinkle ? 0.4 + 0.6 * Math.abs(Math.sin(s.phase)) : 0.6;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Nebula wisps
+    ctx.globalAlpha = 0.04;
+    const neb = ctx.createRadialGradient(this.W * 0.3, this.H * 0.2, 0, this.W * 0.3, this.H * 0.2, 150);
+    neb.addColorStop(0, '#8800ff');
+    neb.addColorStop(1, 'transparent');
+    ctx.fillStyle = neb;
+    ctx.fillRect(0, 0, this.W, this.H);
+
+    const neb2 = ctx.createRadialGradient(this.W * 0.7, this.H * 0.15, 0, this.W * 0.7, this.H * 0.15, 120);
+    neb2.addColorStop(0, '#0044ff');
+    neb2.addColorStop(1, 'transparent');
+    ctx.fillStyle = neb2;
+    ctx.fillRect(0, 0, this.W, this.H);
+    ctx.globalAlpha = 1;
+
+    // Ground
+    ctx.fillStyle = '#001100';
+    ctx.fillRect(0, this.H - 30, this.W, 30);
+    ctx.strokeStyle = '#00ff44';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, this.H - 30);
+    ctx.lineTo(this.W, this.H - 30);
+    ctx.stroke();
+
+    // Buildings silhouette
+    ctx.fillStyle = '#001a00';
+    this.buildings.forEach(b => {
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+    });
+
+    // City window lights
+    this.cityLights.forEach(l => {
+      const alpha = 0.4 + 0.4 * Math.abs(Math.sin(l.flicker));
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ffee88';
+      ctx.shadowColor = '#ffaa00';
+      ctx.shadowBlur = 4;
+      ctx.fillRect(l.x, l.y, 3, 4);
+    });
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+
+    // Ground line glow
+    ctx.strokeStyle = '#00ff44';
+    ctx.shadowColor = '#00ff44';
+    ctx.shadowBlur = 8;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, this.H - 30);
+    ctx.lineTo(this.W, this.H - 30);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ─── Particle ───────────────────────────────────────────────────
+class Particle {
+  constructor(x, y, color, count = 15, speedScale = 1) {
+    this.parts = [];
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = (2 + Math.random() * 4) * speedScale;
+      this.parts.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1,
+        decay: 0.02 + Math.random() * 0.03,
+        r: 2 + Math.random() * 4,
+        color,
+        type: Math.random() > 0.6 ? 'spark' : 'dot'
+      });
+    }
+  }
+
+  update() {
+    this.parts.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05; // slight gravity
+      p.vx *= 0.98;
+      p.life -= p.decay;
+    });
+    this.parts = this.parts.filter(p => p.life > 0);
+  }
+
+  draw(ctx) {
+    this.parts.forEach(p => {
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = p.type === 'spark' ? 8 : 4;
+      if (p.type === 'spark') {
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x - p.vx * 2, p.y - p.vy * 2);
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
+  get alive() { return this.parts.length > 0; }
+}
+
+// ─── Entity ─────────────────────────────────────────────────────
+class Entity {
+  constructor(x, y, w, h) {
+    this.x = x; this.y = y; this.w = w; this.h = h;
+  }
+}
+
+// ─── Enemy ──────────────────────────────────────────────────────
+class Enemy extends Entity {
+  constructor(x, y, type = 0, wave = 1) {
+    super(x, y, 30, 25);
+    this.type = type; // 0=scout(cyan), 1=soldier(green), 2=heavy(orange)
+    this.wave = wave;
+    this.phase = Math.random() * Math.PI * 2;
+    this.speed = [3, 2, 1][type] + wave * 0.3;
+    this.health = [1, 2, 3][type];
+    this.score = [30, 20, 10][type];
+    this.alive = true;
+  }
+
+  get color() {
+    return ['#00ffff', '#00ff88', '#ff8800'][this.type];
+  }
+  get color2() {
+    return ['#0088ff', '#ff44ff', '#ff4444'][this.type];
+  }
+
+  update(dir, drop) {
+    this.x += dir * this.speed;
+    this.y += drop;
+    this.phase += 0.06;
+  }
+
+  draw(ctx) {
+    if (!this.alive) return;
+    const wobble = Math.sin(this.phase) * 3;
+    const cx = this.x + this.w / 2;
+    const cy = this.y + this.h / 2;
+
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = this.color;
+
+    if (this.type === 0) {
+      // Scout — sleek triangle fighter
+      ctx.beginPath();
+      ctx.moveTo(cx, this.y + wobble - 5);
+      ctx.lineTo(this.x + this.w, this.y + this.h + wobble);
+      ctx.lineTo(this.x, this.y + this.h + wobble);
+      ctx.closePath();
+      ctx.fill();
+      // Wing glow
+      ctx.strokeStyle = this.color2;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = this.color2;
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.moveTo(this.x - 3, this.y + this.h + wobble);
+      ctx.lineTo(this.x + this.w + 3, this.y + this.h + wobble);
+      ctx.stroke();
+    } else if (this.type === 1) {
+      // Soldier — classic invader body
+      ctx.beginPath();
+      ctx.roundRect(this.x, this.y + wobble, this.w, this.h * 0.5, 4);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.roundRect(this.x + this.w * 0.1, this.y + wobble - this.h * 0.3, this.w * 0.8, this.h * 0.35, 3);
+      ctx.fill();
+      // Eyes
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(this.x + this.w * 0.3, this.y + wobble - this.h * 0.1, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(this.x + this.w * 0.7, this.y + wobble - this.h * 0.1, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(this.x + this.w * 0.3 + 1, this.y + wobble - this.h * 0.1 + 1, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(this.x + this.w * 0.7 + 1, this.y + wobble - this.h * 0.1 + 1, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      // Antenna
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = this.color;
+      ctx.beginPath();
+      ctx.moveTo(this.x + this.w * 0.2, this.y + wobble - this.h * 0.3);
+      ctx.lineTo(this.x + this.w * 0.1, this.y + wobble - this.h * 0.55);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(this.x + this.w * 0.8, this.y + wobble - this.h * 0.3);
+      ctx.lineTo(this.x + this.w * 0.9, this.y + wobble - this.h * 0.55);
+      ctx.stroke();
+    } else {
+      // Heavy — big hexagon tank
+      const r = this.w / 2;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
+        const px = cx + Math.cos(a) * r;
+        const py = cy + wobble + Math.sin(a) * r * 0.7;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      // Cannon
+      ctx.fillStyle = this.color2;
+      ctx.fillRect(cx - 3, this.y + wobble - 12, 6, 14);
+      // Armor lines
+      ctx.strokeStyle = this.color2;
+      ctx.lineWidth = 1.5;
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.moveTo(this.x + 5, cy + wobble);
+      ctx.lineTo(this.x + this.w - 5, cy + wobble);
+      ctx.stroke();
+      // Eyes
+      ctx.fillStyle = '#ff4444';
+      ctx.shadowColor = '#ff4444';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(cx - 6, cy + wobble, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx + 6, cy + wobble, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ─── Bullet ─────────────────────────────────────────────────────
+class Bullet extends Entity {
+  constructor(x, y, vx, vy, friendly = true) {
+    super(x - 2, y, 4, 12);
+    this.x = x; this.y = y;
+    this.vx = vx; this.vy = vy;
+    this.friendly = friendly;
+    this.alive = true;
+  }
+
+  update(H) {
+    this.x += this.vx;
+    this.y += this.vy;
+    if (this.y < -10 || this.y > H + 10) this.alive = false;
+  }
+
+  draw(ctx) {
+    if (!this.alive) return;
+    if (this.friendly) {
+      ctx.fillStyle = '#00ffff';
+      ctx.shadowColor = '#00ffff';
+      ctx.shadowBlur = 10;
+      ctx.fillRect(this.x - 2, this.y, 4, 14);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(this.x - 1, this.y, 2, 14);
+    } else {
+      ctx.fillStyle = '#ff4444';
+      ctx.shadowColor = '#ff4444';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffaa00';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ─── Player ─────────────────────────────────────────────────────
+class Player extends Entity {
+  constructor(x, y) {
+    super(x, y, 40, 20);
+    this.x = x; this.y = y;
+    this.engineFlicker = 0;
+  }
+
+  move(dir, W) {
+    const speed = 8;
+    this.x = Math.max(20, Math.min(W - 20, this.x + dir * speed));
+  }
+
+  draw(ctx, frame) {
+    this.engineFlicker = frame;
+
+    // Shield glow
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 28, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0, 200, 255, 0.15)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Ship body
+    ctx.fillStyle = '#00c8ff';
+    ctx.shadowColor = '#00c8ff';
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y - this.h / 2);
+    ctx.lineTo(this.x - this.w / 2, this.y + this.h / 2);
+    ctx.lineTo(this.x + this.w / 2, this.y + this.h / 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // Cockpit
+    ctx.fillStyle = '#88eeff';
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.ellipse(this.x, this.y - 2, 6, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Engine flame
+    ctx.fillStyle = '#ff8800';
+    ctx.shadowColor = '#ff8800';
+    ctx.shadowBlur = 12;
+    const flame = 5 + Math.sin(this.engineFlicker * 0.5) * 3 + Math.random() * 2;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y + this.h / 2, flame, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffff00';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y + this.h / 2, flame * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ─── Shield Effect ──────────────────────────────────────────────
+class ShieldEffect {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.life = 1;
+    this.decay = 0.04;
+  }
+
+  update() { this.life -= this.decay; }
+  draw(ctx) {
+    if (this.life <= 0) return;
+    ctx.globalAlpha = this.life * 0.5;
+    ctx.strokeStyle = '#00ffff';
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = 15;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 30 * (1.5 - this.life * 0.5), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+  get alive() { return this.life > 0; }
+}
+
+// ─── Game ───────────────────────────────────────────────────────
+class Game {
+  constructor() {
+    this.canvas = document.getElementById('c');
+    this.ctx = this.canvas.getContext('2d');
+    this.W = Math.min(600, window.innerWidth - 20);
+    this.H = Math.min(500, window.innerHeight - 80);
+    this.canvas.width = this.W;
+    this.canvas.height = this.H;
+
+    this.ROWS = 4; this.COLS = 8;
+    this.particles = [];
+    this.shieldEffects = [];
+    this.frame = 0;
+    this.alienDir = 1;
+    this.alienDrop = 0;
+    this.alienShootTimer = 0;
+    this.high = parseInt(localStorage.getItem('invaders_hs') || '0');
+
+    this.scene = new SceneManager(this.ctx, this.W, this.H);
+    this.keys = {};
+    this.raf = null;
+
+    document.addEventListener('keydown', e => {
+      this.keys[e.code] = true;
+      if (e.code === 'Space') { e.preventDefault(); this._shoot(); }
+    });
+    document.addEventListener('keyup', e => { this.keys[e.code] = false; });
+
+    document.getElementById('overlay').style.display = 'flex';
+    this.start();
+  }
+
+  init() {
+    this.player = new Player(this.W / 2, this.H - 50);
+    this.enemies = []; this.playerBullets = []; this.enemyBullets = [];
+    this.particles = []; this.shieldEffects = [];
+    this.score = 0; this.lives = 3; this.wave = 1;
+    this.alienDir = 1; this.alienDrop = 0; this.alienShootTimer = 0;
+    this.gameOver = false;
+    this.frame = 0;
+
+    for (let r = 0; r < this.ROWS; r++) {
+      for (let c = 0; c < this.COLS; c++) {
+        const type = r < 1 ? 0 : r < 2 ? 1 : 2;
+        this.enemies.push(new Enemy(50 + c * 50, 60 + r * 45, type, this.wave));
+      }
+    }
+
+    document.getElementById('s').textContent = '0';
+    document.getElementById('lives').textContent = '3';
+    document.getElementById('wave').textContent = '1';
+  }
+
+  _shoot() {
+    if (this.gameOver) return;
+    this.playerBullets.push(new Bullet(this.player.x, this.player.y - 20, 0, -12, true));
+    // Muzzle flash particles
+    this.particles.push(new Particle(this.player.x, this.player.y - 20, '#00ffff', 5, 0.5));
+  }
+
+  _spawnEnemy() {
+    const type = Math.floor(Math.random() * 3);
+    this.enemies.push(new Enemy(Math.random() * (this.W - 60), -30, type, this.wave));
+  }
+
+  _spawnExplosion(x, y, color, count = 20) {
+    this.particles.push(new Particle(x, y, color, count, 1.2));
+  }
+
+  update() {
+    if (this.gameOver) return;
+    this.frame++;
+
+    // Input
+    if (this.keys['ArrowLeft'] || this.keys['KeyA']) this.player.move(-1, this.W);
+    if (this.keys['ArrowRight'] || this.keys['KeyD']) this.player.move(1, this.W);
+
+    // Enemy movement
+    const speed = 2 + this.wave;
+    this.enemies.forEach(e => e.update(this.alienDir, this.alienDrop));
+    this.alienDrop = 0;
+    const minX = Math.min(...this.enemies.map(e => e.x));
+    const maxX = Math.max(...this.enemies.map(e => e.x + e.w));
+    if (maxX >= this.W - 10 || minX <= 10) {
+      this.alienDir *= -1;
+      this.alienDrop = 10;
+    }
+
+    // Spawn descending enemy
+    if (this.frame % Math.max(20, 70 - this.wave * 5) === 0) this._spawnEnemy();
+
+    // Enemy shoot
+    this.alienShootTimer++;
+    if (this.alienShootTimer > Math.max(30, 80 - this.wave * 5) && this.enemies.length > 0) {
+      this.alienShootTimer = 0;
+      const shooter = this.enemies[Math.floor(Math.random() * this.enemies.length)];
+      this.enemyBullets.push(new Bullet(
+        shooter.x + shooter.w / 2,
+        shooter.y + shooter.h,
+        (Math.random() - 0.5) * 2,
+        4 + this.wave * 0.5,
+        false
+      ));
+    }
+
+    // Update bullets
+    this.playerBullets.forEach(b => b.update(this.H));
+    this.playerBullets = this.playerBullets.filter(b => b.alive);
+    this.enemyBullets.forEach(b => b.update(this.H));
+    this.enemyBullets = this.enemyBullets.filter(b => b.alive);
+
+    // Player bullets vs enemies
+    for (let bi = this.playerBullets.length - 1; bi >= 0; bi--) {
+      const b = this.playerBullets[bi];
+      for (let ei = this.enemies.length - 1; ei >= 0; ei--) {
+        const e = this.enemies[ei];
+        if (!e.alive) continue;
+        if (b.x > e.x && b.x < e.x + e.w && b.y > e.y && b.y < e.y + e.h) {
+          e.health--;
+          this._spawnExplosion(e.x + e.w / 2, e.y + e.h / 2, e.color, 15);
+          if (e.health <= 0) {
+            this._spawnExplosion(e.x + e.w / 2, e.y + e.h / 2, e.color, 25);
+            this._spawnExplosion(e.x + e.w / 2, e.y + e.h / 2, '#ffffff', 10);
+            this.score += e.score;
+            e.alive = false;
+          }
+          this.playerBullets.splice(bi, 1);
+          document.getElementById('s').textContent = this.score;
+          if (this.score > this.high) {
+            this.high = this.score;
+            localStorage.setItem('invaders_hs', this.high);
+          }
+          break;
+        }
+      }
+    }
+    this.enemies = this.enemies.filter(e => e.alive);
+
+    // Enemy bullets vs player
+    for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
+      const b = this.enemyBullets[i];
+      if (Math.abs(b.x - this.player.x) < this.player.w / 2 &&
+          Math.abs(b.y - this.player.y) < this.player.h / 2) {
+        this.lives--;
+        this._spawnExplosion(this.player.x, this.player.y, '#ff4444', 20);
+        this.shieldEffects.push(new ShieldEffect(this.player.x, this.player.y));
+        this.enemyBullets.splice(i, 1);
+        document.getElementById('lives').textContent = this.lives;
+        if (this.lives <= 0) {
+          this.gameOver = true;
+          document.getElementById('overlay').querySelector('h1').textContent = '💥 游戏结束';
+          document.getElementById('overlay').style.display = 'flex';
+          return;
+        }
+      }
+    }
+
+    // Wave clear
+    if (this.enemies.length === 0) {
+      this.wave++;
+      document.getElementById('wave').textContent = this.wave;
+      for (let r = 0; r < this.ROWS; r++) {
+        for (let c = 0; c < this.COLS; c++) {
+          this.enemies.push(new Enemy(50 + c * 50, 60 + r * 45, 0, this.wave));
+        }
+      }
+      this._spawnExplosion(this.W / 2, this.H / 2, '#00ff88', 50);
+    }
+
+    // Particles
+    this.particles.forEach(p => p.update());
+    this.particles = this.particles.filter(p => p.alive);
+    this.shieldEffects.forEach(s => s.update());
+    this.shieldEffects = this.shieldEffects.filter(s => s.alive);
+
+    this.scene.update(this.frame);
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.W, this.H);
+
+    this.scene.draw(this.frame);
+
+    // Player
+    this.player.draw(ctx, this.frame);
+
+    // Shield effects
+    this.shieldEffects.forEach(s => s.draw(ctx));
+
+    // Player bullets
+    this.playerBullets.forEach(b => b.draw(ctx));
+
+    // Enemy bullets
+    this.enemyBullets.forEach(b => b.draw(ctx));
+
+    // Enemies
+    this.enemies.forEach(e => e.draw(ctx));
+
+    // Particles
+    this.particles.forEach(p => p.draw(ctx));
+
+    // HUD top bar
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(0, 0, this.W, 4);
+  }
+
+  loop() {
+    this.update();
+    this.draw();
+    this.raf = requestAnimationFrame(() => this.loop());
+  }
+
+  start() {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('overlay').querySelector('h1').textContent = '👾 太空侵略者';
+    this.init();
+    this.loop();
+  }
+}
+
+const game = new Game();
 </script></body></html>
