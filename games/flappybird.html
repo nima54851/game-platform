@@ -1,8 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh"><head><meta charset="UTF-8"><title>🐦 Flappy鸟</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a1a;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 40px rgba(0,0,0,0.8)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:16px;z-index:10;display:flex;gap:20px}#ui span{background:rgba(0,0,0,0.5);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)}</style></head>
+<style>*{margin:0;padding:0;box-sizing:border-box}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(6px)}
+#overlay h1{font-size:42px;color:#00ff88;text-shadow:0 0 20px rgba(0,255,136,.6);margin-bottom:8px}
+#overlay p{color:rgba(255,255,255,.4);margin-bottom:24px}
+#start-btn{background:#00ff88;color:#000;padding:14px 48px;border:none;border-radius:12px;font-size:18px;font-weight:900;cursor:pointer;font-family:monospace;box-shadow:0 0 30px rgba(0,255,136,.4)}
+body{background:#0a0a1a;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 40px rgba(0,0,0,0.8)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:16px;z-index:10;display:flex;gap:20px}#ui span{background:rgba(0,0,0,0.5);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)}</style></head>
 <body>
 <div id="ui"><span>分数: <b id="s">0</b></span><span>最高: <b id="h">0</b></span></div>
+<div id="overlay">
+  <h1>🐦 Flappy鸟</h1>
+  <p>空格键飞行 · 穿越管道 · 挑战高分</p>
+  <button id="start-btn" onclick="game.startGame()">▶ 开始</button>
+</div>
 <canvas id="c"></canvas>
 <script>
 // ─── Particle ───────────────────────────────────────────────────
@@ -558,5 +568,4 @@ class Game {
   }
 }
 
-new Game();
 </script></body></html>
