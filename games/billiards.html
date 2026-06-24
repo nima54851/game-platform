@@ -2,8 +2,8 @@
 <html lang="zh"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>🎱 台球大师</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a05;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;overflow:hidden}
-canvas{border-radius:8px;display:block}
+body{background:#050505;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;overflow:hidden}
+canvas{border-radius:8px;display:block;box-shadow:0 0 60px rgba(200,150,50,0.1)}
 #hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:24px;z-index:10}
 .stat{background:rgba(0,0,0,.7);border:1px solid rgba(200,150,50,.2);padding:8px 20px;border-radius:8px;text-align:center}
 .stat .v{font-size:22px;font-weight:900;color:#d4a020;text-shadow:0 0 10px rgba(200,150,50,.6)}
@@ -20,127 +20,588 @@ canvas{border-radius:8px;display:block}
 <div id="overlay">
   <h1>🎱 台球大师</h1>
   <p>点击白球拖拽瞄准 · 松手击球 · 把所有彩球打进袋</p>
-  <button id="start-btn" onclick="start()">▶ 开始</button>
+  <button id="start-btn" onclick="game.start()">▶ 开始</button>
 </div>
 <canvas id="c"></canvas>
 <script>
-const canvas=document.getElementById('c');
-const ctx=canvas.getContext('2d');
-const W=Math.min(800,window.innerWidth-20),H=Math.min(450,window.innerHeight-80);
-canvas.width=W;canvas.height=H;
-const R=12,POCKET_R=18,BALL_COLORS=[null,'#f5f518','#0047ab','#dc143c','#8b00ff','#ff4500','#228b22','#8b0000','#000','#f5f518','#0047ab','#dc143c','#8b00ff','#ff4500','#228b22','#8b0000'];
-const pockets=[{x:15,y:15},{x:W/2,y:8},{x:W-15,y:15},{x:15,y:H-15},{x:W/2,y:H-8},{x:W-15,y:H-15}];
-let balls=[],cue={},dragging=false,dragStart={},shots=0,pocketed=0;
-const.friction=.985;
-function init(){
-  balls=[{x:W*.25,y:H/2,vx:0,vy:0,r:R,num:0,color:'#f5f5dc',stripes:false,pocketed:false}];
-  const offsets=[{x:W*.55,y:H/2},{x:W*.6,y:H/2-35},{x:W*.6,y:H/2+35},{x:W*.68,y:H/2-60},{x:W*.68,y:H/2},{x:W*.68,y:H/2+60},{x:W*.76,y:H/2-85},{x:W*.76,y:H/2-28},{x:W*.76,y:H/2+28},{x:W*.76,y:H/2+85}];
-  offsets.forEach((o,i)=>balls.push({x:o.x,y:o.y,vx:0,vy:0,r:R,num:i+1,color:POCKET_COLORS[i+1],stripes:i>7,pocketed:false}));
-  cue={};dragging=false;shots=0;pocketed=0;
-  document.getElementById('shots').textContent=0;document.getElementById('pocketed').textContent=0;}
-function POCKET_COLORS(n){return['#f5f5dc','#f5f518','#0047ab','#dc143c','#8b00ff','#ff4500','#228b22','#8b0000','#000','#f5f518','#0047ab','#dc143c','#8b00ff','#ff4500','#228b22','#8b0000'][n]||'#888';}
-canvas.addEventListener('mousedown',e=>{
-  const rect=canvas.getBoundingClientRect();
-  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
-  const white=balls.find(b=>b.num===0&&!b.pocketed);
-  if(!white)return;
-  const d=Math.sqrt((mx-white.x)**2+(my-white.y)**2);
-  if(d<R*3){
-    dragging=true;dragStart={x:mx,y:my};cue={x:white.x,y:white.y};
-    balls.forEach(b=>{b.vx=0;b.vy=0;});}});
-canvas.addEventListener('mousemove',e=>{
-  if(!dragging)return;
-  const rect=canvas.getBoundingClientRect();
-  cue={x:e.clientX-rect.left,y:e.clientY-rect.top};});
-canvas.addEventListener('mouseup',e=>{
-  if(!dragging)return;
-  dragging=false;
-  const white=balls.find(b=>b.num===0&&!b.pocketed);
-  if(!white)return;
-  const dx=cue.x-white.x,dy=cue.y-white.y;
-  const power=Math.min(25,Math.sqrt(dx*dx+dy*dy)*.15);
-  if(power>1){
-    const angle=Math.atan2(dy,dx);
-    white.vx=Math.cos(angle)*power;white.vy=Math.sin(angle)*power;
-    shots++;document.getElementById('shots').textContent=shots;}});
-function update(){
-  balls.forEach(b=>{if(b.pocketed)return;
-    b.x+=b.vx;b.y+=b.vy;
-    b.vx*=friction;b.vy*=friction;
-    if(Math.abs(b.vx)<.05&&Math.abs(b.vy)<.05){b.vx=0;b.vy=0;}
-    // Walls
-    if(b.x<R){b.x=R;b.vx*=-.8;}if(b.x>W-R){b.x=W-R;b.vx*=-.8;}
-    if(b.y<R){b.y=R;b.vy*=-.8;}if(b.y>H-R){b.y=H-R;b.vy*=-.8;}
-    // Pockets
-    for(const p of pockets){const d=Math.sqrt((b.x-p.x)**2+(b.y-p.y)**2);if(d<POCKET_R){b.pocketed=true;b.vx=0;b.vy=0;pocketed++;document.getElementById('pocketed').textContent=pocketed;break;}}});
-  // Ball collisions
-  for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
-    const a=balls[i],b=balls[j];
-    if(a.pocketed||b.pocketed)continue;
-    const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy);
-    if(d<R*2&&d>0){
-      const nx=dx/d,ny=dy/d,overlap=R*2-d;
-      a.x-=nx*overlap/2;a.y-=ny*overlap/2;
-      b.x+=nx*overlap/2;b.y+=ny*overlap/2;
-      const dvx=b.vx-a.vx,dvy=b.vy-a.vy;
-      const dot=dvx*nx+dvy*ny;
-      if(dot>0){a.vx+=dot*nx;a.vy+=dot*ny;b.vx-=dot*nx;b.vy-=dot*ny;}}}}
-function draw(){
-  // Table felt
-  const felt=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W/2);
-  felt.addColorStop(0,'#1a4a1a');felt.addColorStop(1,'#0d2d0d');
-  ctx.fillStyle=felt;ctx.fillRect(0,0,W,H);
-  // Cushions
-  ctx.fillStyle='#0a3a0a';ctx.fillRect(0,0,W,30);ctx.fillRect(0,H-30,W,30);ctx.fillRect(0,0,30,H);ctx.fillRect(W-30,0,30,H);
-  // Table border
-  ctx.strokeStyle='#5a2a0a';ctx.lineWidth=8;
-  ctx.strokeRect(10,10,W-20,H-20);
-  ctx.strokeStyle='#8b4513';ctx.lineWidth=3;
-  ctx.strokeRect(14,14,W-28,H-28);
-  // Pockets
-  pockets.forEach(p=>{
-    ctx.fillStyle='#000';ctx.shadowColor='#000';ctx.shadowBlur=8;
-    ctx.beginPath();ctx.arc(p.x,p.y,POCKET_R+4,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-    ctx.fillStyle='#111';
-    ctx.beginPath();ctx.arc(p.x,p.y,POCKET_R,0,Math.PI*2);ctx.fill();});
-  // Balls
-  balls.forEach(b=>{
-    if(b.pocketed)return;
-    ctx.shadowColor=b.color;ctx.shadowBlur=8;
-    const bg=ctx.createRadialGradient(b.x-b.r*.3,b.y-b.r*.3,0,b.x,b.y,b.r);
-    bg.addColorStop(0,b.num===0?'#fffff0':b.color);
-    bg.addColorStop(1,b.num===0?'#d4c890':b.stripes?b.color:'rgba(0,0,0,.3)');
-    ctx.fillStyle=bg;
-    ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
-    // Number
-    if(b.num>0){
-      ctx.fillStyle=b.stripes?'#fff':'rgba(0,0,0,.7)';
-      ctx.beginPath();ctx.arc(b.x,b.y,b.r*.55,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle=b.stripes?b.color:'#fff';
-      ctx.font=`bold ${b.r*.7}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(b.num,b.x,b.y);}
+// ─── Constants ───────────────────────────────────────────────────
+const BALL_COLORS = [
+  null,
+  '#f5f518', '#0047ab', '#dc143c', '#8b00ff',
+  '#ff4500', '#228b22', '#8b0000',
+  '#000',   '#f5f518', '#0047ab', '#dc143c',
+  '#8b00ff', '#ff4500', '#228b22', '#8b0000'
+];
+
+// ─── Particle ────────────────────────────────────────────────────
+class Particle {
+  constructor(x, y, color, count = 12) {
+    this.parts = [];
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1 + Math.random() * 3;
+      this.parts.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1,
+        decay: 0.03 + Math.random() * 0.04,
+        r: 2 + Math.random() * 3,
+        color
+      });
+    }
+  }
+
+  update() {
+    this.parts.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vx *= 0.94;
+      p.vy *= 0.94;
+      p.life -= p.decay;
+    });
+    this.parts = this.parts.filter(p => p.life > 0);
+  }
+
+  draw(ctx) {
+    this.parts.forEach(p => {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 5;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
+  get alive() { return this.parts.length > 0; }
+}
+
+// ─── Ball ────────────────────────────────────────────────────────
+class Ball {
+  constructor(x, y, num, color, stripe = false) {
+    this.x = x; this.y = y;
+    this.vx = 0; this.vy = 0;
+    this.r = 12;
+    this.num = num;
+    this.color = color;
+    this.stripes = stripe;
+    this.pocketed = false;
+    this.spin = 0; // lateral spin
+  }
+
+  get speed() { return Math.sqrt(this.vx * this.vx + this.vy * this.vy); }
+  get moving() { return this.speed > 0.05; }
+
+  update(friction, W, H, pockets) {
+    if (this.pocketed) return;
+
+    // Apply lateral spin effect
+    if (Math.abs(this.spin) > 0.1) {
+      this.spin *= 0.92;
+    } else {
+      this.spin = 0;
+    }
+
+    this.x += this.vx;
+    this.y += this.vy + this.spin;
+
+    // Friction
+    this.vx *= friction;
+    this.vy *= friction;
+
+    if (Math.abs(this.vx) < 0.02 && Math.abs(this.vy) < 0.02) {
+      this.vx = 0; this.vy = 0;
+    }
+
+    // Wall collisions
+    const cushion = 30;
+    if (this.x < cushion + this.r) {
+      this.x = cushion + this.r;
+      this.vx *= -0.82;
+      this.spin += this.vy * 0.15;
+    }
+    if (this.x > W - cushion - this.r) {
+      this.x = W - cushion - this.r;
+      this.vx *= -0.82;
+      this.spin -= this.vy * 0.15;
+    }
+    if (this.y < cushion + this.r) {
+      this.y = cushion + this.r;
+      this.vy *= -0.82;
+    }
+    if (this.y > H - cushion - this.r) {
+      this.y = H - cushion - this.r;
+      this.vy *= -0.82;
+    }
+
+    // Pocket check
+    for (const p of pockets) {
+      const dx = this.x - p.x, dy = this.y - p.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < p.r + this.r * 0.5) {
+        this.pocketed = true;
+        this.vx = 0; this.vy = 0;
+        return true; // pocketed
+      }
+    }
+    return false;
+  }
+
+  draw(ctx) {
+    if (this.pocketed) return;
+
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 10;
+
+    // Ball base
+    const bg = ctx.createRadialGradient(
+      this.x - this.r * 0.35, this.y - this.r * 0.35, 0,
+      this.x, this.y, this.r
+    );
+    const baseColor = this.num === 0 ? '#fffff0' : this.color;
+    const darkColor = this.num === 0 ? '#d4c890' : (this.stripes ? this.color : 'rgba(0,0,0,0.35)');
+    bg.addColorStop(0, baseColor);
+    bg.addColorStop(1, darkColor);
+
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Stripe
+    if (this.stripes) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(this.x - this.r, this.y - this.r * 0.35, this.r * 2, this.r * 0.7);
+      ctx.restore();
+    }
+
+    // Number circle
+    if (this.num > 0) {
+      ctx.fillStyle = this.stripes ? '#fff' : 'rgba(0,0,0,0.65)';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = this.stripes ? this.color : '#fff';
+      ctx.font = `bold ${this.r * 0.7}px monospace`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.num, this.x, this.y);
+    }
+
     // Shine
-    ctx.fillStyle='rgba(255,255,255,.4)';
-    ctx.beginPath();ctx.arc(b.x-b.r*.3,b.y-b.r*.3,b.r*.2,0,Math.PI*2);ctx.fill();});
-  // Cue stick
-  if(dragging){
-    const white=balls.find(b=>b.num===0&&!b.pocketed);
-    if(white){
-      const dx=cue.x-white.x,dy=cue.y-white.y;
-      const angle=Math.atan2(dy,dx);
-      const len=80+Math.sqrt(dx*dx+dy*dy)*.5;
-      ctx.strokeStyle='#c4a060';ctx.lineWidth=4;
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(this.x - this.r * 0.3, this.y - this.r * 0.3, this.r * 0.22, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ─── Pocket ──────────────────────────────────────────────────────
+class Pocket {
+  constructor(x, y, r = 18) {
+    this.x = x; this.y = y; this.r = r;
+  }
+
+  draw(ctx) {
+    // Pocket shadow
+    ctx.shadowColor = '#000';
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r + 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Pocket hole
+    const pg = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r);
+    pg.addColorStop(0, '#111');
+    pg.addColorStop(0.7, '#000');
+    pg.addColorStop(1, '#222');
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Pocket rim
+    ctx.strokeStyle = '#6b3310';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r + 1, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+// ─── Scene Manager ───────────────────────────────────────────────
+class SceneManager {
+  constructor(ctx, W, H) {
+    this.ctx = ctx;
+    this.W = W; this.H = H;
+    this.frame = 0;
+  }
+
+  update() { this.frame++; }
+
+  draw() {
+    const ctx = this.ctx;
+    const { W, H } = this;
+
+    // Table felt
+    const felt = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.7);
+    felt.addColorStop(0, '#1e5c1e');
+    felt.addColorStop(1, '#0e2e0e');
+    ctx.fillStyle = felt;
+    ctx.fillRect(0, 0, W, H);
+
+    // Felt texture (random dots)
+    ctx.fillStyle = 'rgba(0,80,0,0.08)';
+    for (let i = 0; i < 300; i++) {
+      const tx = ((i * 137 + this.frame * 0) % W);
+      const ty = ((i * 251) % H);
+      ctx.fillRect(tx, ty, 1, 1);
+    }
+
+    // Overhead light glow
+    const lightX = W / 2, lightY = H * 0.3;
+    const light = ctx.createRadialGradient(lightX, lightY, 0, lightX, lightY, W * 0.7);
+    light.addColorStop(0, 'rgba(255,240,200,0.08)');
+    light.addColorStop(0.5, 'rgba(255,220,150,0.03)');
+    light.addColorStop(1, 'transparent');
+    ctx.fillStyle = light;
+    ctx.fillRect(0, 0, W, H);
+
+    // Cushion
+    const cush = 28;
+    ctx.fillStyle = '#0d3d0d';
+    ctx.fillRect(0, 0, W, cush);
+    ctx.fillRect(0, H - cush, W, cush);
+    ctx.fillRect(0, 0, cush, H);
+    ctx.fillRect(W - cush, 0, cush, H);
+
+    // Table border (wood)
+    const wood = ctx.createLinearGradient(0, 0, W, H);
+    wood.addColorStop(0, '#7a4010');
+    wood.addColorStop(0.5, '#a06020');
+    wood.addColorStop(1, '#6a3508');
+    ctx.strokeStyle = wood;
+    ctx.lineWidth = 10;
+    ctx.strokeRect(8, 8, W - 16, H - 16);
+
+    // Inner rail
+    ctx.strokeStyle = '#8b5020';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(12, 12, W - 24, H - 24);
+
+    // Rail felt
+    ctx.fillStyle = '#1a5a1a';
+    ctx.fillRect(cush, cush, W - cush * 2, H - cush * 2);
+
+    // Diamond markers
+    const diamonds = [
+      [0.25, 0], [0.5, 0], [0.75, 0],
+      [0.25, 1], [0.5, 1], [0.75, 1],
+      [0, 0.25], [0, 0.5], [0, 0.75],
+      [1, 0.25], [1, 0.5], [1, 0.75]
+    ];
+    diamonds.forEach(([fx, fy]) => {
+      const dx = cush + (W - cush * 2) * fx;
+      const dy = cush + (H - cush * 2) * fy;
+      ctx.fillStyle = '#c0a040';
+      ctx.shadowColor = '#d4a020';
+      ctx.shadowBlur = 4;
       ctx.beginPath();
-      ctx.moveTo(white.x+Math.cos(angle)*len,white.y+Math.sin(angle)*len);
-      ctx.lineTo(white.x+Math.cos(angle)*R,white.y+Math.sin(angle)*R);
-      ctx.stroke();
-      ctx.strokeStyle='rgba(255,255,255,.1)';ctx.lineWidth=8;
-      ctx.beginPath();
-      ctx.moveTo(white.x+Math.cos(angle)*len,white.y+Math.sin(angle)*len);
-      ctx.lineTo(white.x+Math.cos(angle)*R,white.y+Math.sin(angle)*R);
-      ctx.stroke();}}}
-function loop(){update();draw();requestAnimationFrame(loop);}
-function start(){document.getElementById('overlay').style.display='none';document.getElementById('overlay').querySelector('h1').textContent='🎱 台球大师';init();loop();}
-document.getElementById('overlay').style.display='flex';init();loop();
+      ctx.arc(dx, dy, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+
+    // Headstring line (behind cue ball start)
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(W * 0.25, cush);
+    ctx.lineTo(W * 0.25, H - cush);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+// ─── Game ────────────────────────────────────────────────────────
+class Game {
+  constructor() {
+    this.canvas = document.getElementById('c');
+    this.ctx = this.canvas.getContext('2d');
+    this.W = Math.min(800, window.innerWidth - 20);
+    this.H = Math.min(450, window.innerHeight - 80);
+    this.canvas.width = this.W; this.canvas.height = this.H;
+
+    this.FRICTION = 0.985;
+    this.pockets = [
+      new Pocket(15, 15, 18), new Pocket(this.W / 2, 8, 18),
+      new Pocket(this.W - 15, 15, 18), new Pocket(15, this.H - 15, 18),
+      new Pocket(this.W / 2, this.H - 8, 18), new Pocket(this.W - 15, this.H - 15, 18)
+    ];
+
+    this.scene = new SceneManager(this.ctx, this.W, this.H);
+    this.balls = [];
+    this.particles = [];
+    this.shots = 0;
+    this.pocketed = 0;
+    this.dragging = false;
+    this.dragX = 0; this.dragY = 0;
+    this.frame = 0;
+
+    this.canvas.addEventListener('mousedown', e => this._onDown(e));
+    this.canvas.addEventListener('mousemove', e => this._onMove(e));
+    this.canvas.addEventListener('mouseup', e => this._onUp(e));
+    this.canvas.addEventListener('mouseleave', e => this._onUp(e));
+
+    // Touch support
+    this.canvas.addEventListener('touchstart', e => { e.preventDefault(); this._onDown(e.touches[0]); });
+    this.canvas.addEventListener('touchmove', e => { e.preventDefault(); this._onMove(e.touches[0]); });
+    this.canvas.addEventListener('touchend', e => { e.preventDefault(); this._onUp(e); });
+
+    document.getElementById('overlay').style.display = 'flex';
+    this.start();
+  }
+
+  init() {
+    this.balls = [];
+    this.particles = [];
+    this.shots = 0; this.pocketed = 0;
+    document.getElementById('shots').textContent = '0';
+    document.getElementById('pocketed').textContent = '0';
+
+    // Cue ball
+    this.balls.push(new Ball(this.W * 0.25, this.H / 2, 0, '#f5f5dc'));
+
+    // Rack
+    const rackX = this.W * 0.65;
+    const rackY = this.H / 2;
+    const spacing = 24;
+    const offsets = [
+      { dx: 0, dy: 0 },
+      { dx: spacing * 0.866, dy: -spacing / 2 },
+      { dx: spacing * 0.866, dy: spacing / 2 },
+      { dx: spacing * 2 * 0.866, dy: -spacing },
+      { dx: spacing * 2 * 0.866, dy: 0 },
+      { dx: spacing * 2 * 0.866, dy: spacing },
+      { dx: spacing * 3 * 0.866, dy: -spacing * 1.5 },
+      { dx: spacing * 3 * 0.866, dy: -spacing * 0.5 },
+      { dx: spacing * 3 * 0.866, dy: spacing * 0.5 },
+      { dx: spacing * 3 * 0.866, dy: spacing * 1.5 }
+    ];
+
+    offsets.forEach((o, i) => {
+      const colorIdx = (i % 8) + 1;
+      this.balls.push(new Ball(
+        rackX + o.dx,
+        rackY + o.dy,
+        colorIdx,
+        BALL_COLORS[colorIdx],
+        colorIdx > 8
+      ));
+    });
+  }
+
+  get cueBall() { return this.balls.find(b => b.num === 0 && !b.pocketed); }
+  get allStopped() { return this.balls.every(b => !b.moving); }
+
+  _mousePos(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
+  }
+
+  _onDown(e) {
+    const m = this._mousePos(e);
+    const cb = this.cueBall;
+    if (!cb) return;
+    const d = Math.sqrt((m.x - cb.x) ** 2 + (m.y - cb.y) ** 2);
+    if (d < cb.r * 4) {
+      this.dragging = true;
+      this.dragX = m.x; this.dragY = m.y;
+      // Stop all balls
+      this.balls.forEach(b => { b.vx = 0; b.vy = 0; });
+    }
+  }
+
+  _onMove(e) {
+    if (!this.dragging) return;
+    const m = this._mousePos(e);
+    this.dragX = m.x; this.dragY = m.y;
+  }
+
+  _onUp(e) {
+    if (!this.dragging) return;
+    this.dragging = false;
+    const cb = this.cueBall;
+    if (!cb) return;
+    const dx = this.dragX - cb.x, dy = this.dragY - cb.y;
+    const power = Math.min(28, Math.sqrt(dx * dx + dy * dy) * 0.18);
+    if (power > 0.8) {
+      const angle = Math.atan2(dy, dx);
+      cb.vx = Math.cos(angle) * power;
+      cb.vy = Math.sin(angle) * power;
+      this.shots++;
+      document.getElementById('shots').textContent = this.shots;
+      // Impact particles at cue ball
+      this.particles.push(new Particle(cb.x, cb.y, '#ffff88', 8));
+    }
+  }
+
+  update() {
+    this.frame++;
+    this.scene.update();
+
+    let anyPocketed = false;
+    this.balls.forEach(b => {
+      if (b.update(this.FRICTION, this.W, this.H, this.pockets)) {
+        anyPocketed = true;
+        this.pocketed++;
+        document.getElementById('pocketed').textContent = this.pocketed;
+        this.particles.push(new Particle(b.x, b.y, b.color, 20));
+        // Re-spot cue ball if pocketed
+        if (b.num === 0) {
+          setTimeout(() => {
+            b.pocketed = false;
+            b.x = this.W * 0.25;
+            b.y = this.H / 2;
+            b.vx = 0; b.vy = 0;
+          }, 500);
+        }
+      }
+    });
+
+    // Ball-to-ball collisions
+    for (let i = 0; i < this.balls.length; i++) {
+      for (let j = i + 1; j < this.balls.length; j++) {
+        const a = this.balls[i], b = this.balls[j];
+        if (a.pocketed || b.pocketed) continue;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < a.r * 2 && dist > 0) {
+          const nx = dx / dist, ny = dy / dist;
+          const overlap = a.r * 2 - dist;
+          a.x -= nx * overlap / 2; a.y -= ny * overlap / 2;
+          b.x += nx * overlap / 2; b.y += ny * overlap / 2;
+
+          const dvx = b.vx - a.vx, dvy = b.vy - a.vy;
+          const dot = dvx * nx + dvy * ny;
+          if (dot > 0) {
+            a.vx += dot * nx; a.vy += dot * ny;
+            b.vx -= dot * nx; b.vy -= dot * ny;
+          }
+          // Impact sparks
+          const impactSpeed = Math.abs(dot);
+          if (impactSpeed > 1.5) {
+            const ix = (a.x + b.x) / 2, iy = (a.y + b.y) / 2;
+            this.particles.push(new Particle(ix, iy, '#ffdd44', Math.floor(impactSpeed * 2)));
+          }
+        }
+      }
+    }
+
+    this.particles.forEach(p => p.update());
+    this.particles = this.particles.filter(p => p.alive);
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.W, this.H);
+
+    this.scene.draw();
+
+    // Pockets
+    this.pockets.forEach(p => p.draw(ctx));
+
+    // Balls
+    this.balls.forEach(b => b.draw(ctx));
+
+    // Cue stick when dragging
+    if (this.dragging) {
+      const cb = this.cueBall;
+      if (cb) {
+        const dx = this.dragX - cb.x, dy = this.dragY - cb.y;
+        const angle = Math.atan2(dy, dx);
+        const len = 80 + Math.sqrt(dx * dx + dy * dy) * 0.5;
+
+        // Aim line
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(cb.x, cb.y);
+        ctx.lineTo(cb.x - Math.cos(angle) * 300, cb.y - Math.sin(angle) * 300);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Cue stick
+        ctx.strokeStyle = '#c4a060';
+        ctx.lineWidth = 5;
+        ctx.shadowColor = '#c4a060';
+        ctx.shadowBlur = 8;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(cb.x + Math.cos(angle) * len, cb.y + Math.sin(angle) * len);
+        ctx.lineTo(cb.x + Math.cos(angle) * cb.r, cb.y + Math.sin(angle) * cb.r);
+        ctx.stroke();
+
+        // Cue tip
+        ctx.fillStyle = '#3366cc';
+        ctx.beginPath();
+        ctx.arc(cb.x + Math.cos(angle) * (cb.r + 2), cb.y + Math.sin(angle) * (cb.r + 2), 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    // Particles
+    this.particles.forEach(p => p.draw(ctx));
+
+    // Win message
+    const remaining = this.balls.filter(b => b.num > 0 && !b.pocketed).length;
+    if (remaining === 0 && this.balls.length > 0) {
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(0, 0, this.W, this.H);
+      ctx.fillStyle = '#d4a020';
+      ctx.shadowColor = '#d4a020';
+      ctx.shadowBlur = 20;
+      ctx.font = 'bold 36px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🏆 清袋！', this.W / 2, this.H / 2 - 20);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#aaa';
+      ctx.font = '16px monospace';
+      ctx.fillText(`用了 ${this.shots} 杆`, this.W / 2, this.H / 2 + 20);
+    }
+  }
+
+  loop() {
+    this.update();
+    this.draw();
+    this.raf = requestAnimationFrame(() => this.loop());
+  }
+
+  start() {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('overlay').querySelector('h1').textContent = '🎱 台球大师';
+    this.init();
+    this.loop();
+  }
+}
+
+const game = new Game();
 </script></body></html>
