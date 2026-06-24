@@ -502,7 +502,7 @@ class Game {
     document.addEventListener('keyup', e => { this.keys[e.code] = false; });
 
     document.getElementById('overlay').style.display = 'flex';
-    this.start();
+    // DO NOT auto-start — wait for button click
   }
 
   init() {
