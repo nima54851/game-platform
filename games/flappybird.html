@@ -1,117 +1,526 @@
 <!DOCTYPE html>
 <html lang="zh"><head><meta charset="UTF-8"><title>🐦 Flappy鸟</title>
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#1a1a2e;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 30px rgba(0,0,0,0.5)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:16px;z-index:10;display:flex;gap:20px}#ui span{background:rgba(255,255,255,0.05);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)}</style></head>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0a1a;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}canvas{border-radius:8px;box-shadow:0 0 40px rgba(0,0,0,0.8)}#ui{position:fixed;top:16px;left:50%;transform:translateX(-50%);color:#e2e8f0;font-size:16px;z-index:10;display:flex;gap:20px}#ui span{background:rgba(0,0,0,0.5);padding:6px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1)}</style></head>
 <body>
 <div id="ui"><span>分数: <b id="s">0</b></span><span>最高: <b id="h">0</b></span></div>
 <canvas id="c"></canvas>
 <script>
-const canvas=document.getElementById('c');const ctx=canvas.getContext('2d');
-const W=400,H=560;canvas.width=W;canvas.height=H;
-const GRAVITY=0.55,FLAP=-9,GAP=160;
-let bird,y,vel,score,high,frame,gameState,obstacles;
-high=parseInt(localStorage.getItem('flappy_hs')||'0');
-document.getElementById('h').textContent=high;
-
-function startGame(){bird=H/2;vel=0;score=0;frame=0;obstacles=[];gameState='play';document.getElementById('s').textContent=0;}
-
-function drawBg(){
-  const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#1a1a3e');g.addColorStop(1,'#0d0d1a');
-  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  // Clouds
-  ctx.fillStyle='rgba(255,255,255,0.03)';
-  for(let i=0;i<5;i++){
-    const cx=(frame*0.3+i*100)%(W+200)-100,cy=60+i*80;
-    ctx.beginPath();ctx.arc(cx,cy,30,0,Math.PI*2);ctx.arc(cx+25,cy-10,25,0,Math.PI*2);ctx.arc(cx+50,cy,30,0,Math.PI*2);ctx.arc(cx+25,cy+5,20,0,Math.PI*2);ctx.fill();
+// ─── Particle ───────────────────────────────────────────────────
+class Particle {
+  constructor(x, y, color, count = 10, opts = {}) {
+    this.parts = [];
+    for (let i = 0; i < count; i++) {
+      const angle = opts.spread !== undefined ? (Math.random() - 0.5) * opts.spread : Math.random() * Math.PI * 2;
+      const speed = opts.speed || (2 + Math.random() * 3);
+      this.parts.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - (opts.upward ? 2 : 0),
+        life: 1,
+        decay: 0.03 + Math.random() * 0.04,
+        r: opts.r || (2 + Math.random() * 3),
+        color,
+        gravity: opts.gravity !== undefined ? opts.gravity : 0.1
+      });
+    }
   }
-  // Ground
-  const gy=H-60;
-  ctx.fillStyle='#1a3a1a';
-  ctx.fillRect(0,gy,W,60);
-  ctx.fillStyle='#2a5a2a';
-  ctx.fillRect(0,gy,W,4);
-}
 
-function drawBird(){
-  ctx.save();ctx.translate(W*0.25,bird);
-  const angle=Math.min(Math.max(vel*3,-30),90)*Math.PI/180;
-  ctx.rotate(angle*Math.PI/180);
-  // Body
-  ctx.fillStyle='#ffd700';ctx.shadowColor='#ffd700';ctx.shadowBlur=10;
-  ctx.beginPath();ctx.ellipse(0,0,18,14,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-  // Wing
-  ctx.fillStyle='#ffaa00';ctx.beginPath();ctx.ellipse(-2,4+Math.sin(frame*0.4)*3,10,6,0.3,0,Math.PI*2);ctx.fill();
-  // Eye
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(6,-3,5,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#000';ctx.beginPath();ctx.arc(7,-3,2.5,0,Math.PI*2);ctx.fill();
-  // Beak
-  ctx.fillStyle='#ff6600';ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(22,2);ctx.lineTo(12,4);ctx.closePath();ctx.fill();
-  ctx.restore();
-}
-
-function spawnObstacle(){
-  const minH=60,maxH=H-GAP-100;
-  const topH=minH+Math.random()*(maxH-minH);
-  obstacles.push({x:W+40,topH,botY:topH+GAP,passed:false});
-}
-
-function drawObstacles(){
-  obstacles.forEach(o=>{
-    const g=ctx.createLinearGradient(o.x,0,o.x+50,0);
-    g.addColorStop(0,'#2d5a2d');g.addColorStop(1,'#1a3a1a');
-    ctx.fillStyle=g;
-    // Top
-    ctx.fillRect(o.x,0,50,o.topH);
-    ctx.fillStyle='#3a7a3a';ctx.fillRect(o.x,o.topH-20,50,20);
-    // Bottom
-    ctx.fillStyle=g;
-    ctx.fillRect(o.x,o.botY,50,H-o.botY);
-    ctx.fillStyle='#3a7a3a';ctx.fillRect(o.x,o.botY,50,20);
-  });
-}
-
-function update(){
-  if(gameState!=='play')return;
-  frame++;vel+=GRAVITY;bird+=vel;
-  if(frame%80===0)spawnObstacle();
-  obstacles.forEach(o=>o.x-=3);
-  obstacles=obstacles.filter(o=>o.x>-50);
-  obstacles.forEach(o=>{
-    if(!o.passed&&o.x+50<W*0.25){o.passed=true;score++;document.getElementById('s').textContent=score;if(score>high){high=score;document.getElementById('h').textContent=high;localStorage.setItem('flappy_hs',high);}}
-  });
-  const bx=W*0.25,by=bird,br=14;
-  for(const o of obstacles){
-    if(bx+br>o.x&&bx-br<o.x+50&&(by-br<o.topH||by+br>o.botY)){gameState='over';return;}
+  update() {
+    this.parts.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += p.gravity;
+      p.life -= p.decay;
+    });
+    this.parts = this.parts.filter(p => p.life > 0);
   }
-  if(bird>H-60||bird<0){gameState='over';}
+
+  draw(ctx) {
+    this.parts.forEach(p => {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
+  get alive() { return this.parts.length > 0; }
 }
 
-function draw(){
-  drawBg();drawObstacles();drawBird();
-  if(gameState==='over'){
-    ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#ef4444';ctx.font='bold 32px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('💀 撞到了！',W/2,H/2-40);
-    ctx.fillStyle='#fff';ctx.font='bold 40px monospace';
-    ctx.fillText('分数: '+score,W/2,H/2+10);
-    ctx.fillStyle='#888';ctx.font='16px monospace';
-    ctx.fillText('按任意键重试',W/2,H/2+50);
-  } else if(gameState==='idle'){
-    ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='#ffd700';ctx.font='bold 28px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('🐦 Flappy鸟',W/2,H/2-20);
-    ctx.fillStyle='#888';ctx.font='16px monospace';
-    ctx.fillText('按空格/点击 开始',W/2,H/2+20);
+// ─── Trail Particle ──────────────────────────────────────────────
+class TrailParticle extends Particle {
+  constructor(x, y, color) {
+    super(x, y, color, 1, { speed: 0.5, r: 3, decay: 0.06, gravity: -0.02, spread: 0.5 });
   }
 }
 
-function loop(){update();draw();requestAnimationFrame(loop);}
-document.addEventListener('keydown',e=>{
-  if(gameState==='idle')startGame();
-  else if(gameState==='play'&&e.key===' ')vel=FLAP;
-  else if(gameState==='over')startGame();
-});
-canvas.addEventListener('click',()=>{if(gameState==='idle')startGame();else if(gameState==='play')vel=FLAP;else if(gameState==='over')startGame();});
-gameState='idle';loop();
-</script>
-</body></html>
+// ─── Cloud ───────────────────────────────────────────────────────
+class Cloud {
+  constructor(W, H) {
+    this.W = W; this.H = H;
+    this.x = W + Math.random() * 200;
+    this.y = 30 + Math.random() * (H * 0.5);
+    this.speed = 0.2 + Math.random() * 0.4;
+    this.scale = 0.6 + Math.random() * 0.8;
+    this.alpha = 0.08 + Math.random() * 0.08;
+  }
+
+  update() { this.x -= this.speed; if (this.x < -150) this.x = this.W + 50; }
+
+  draw(ctx) {
+    ctx.globalAlpha = this.alpha;
+    ctx.fillStyle = '#ffffff';
+    const s = this.scale;
+    const cx = this.x, cy = this.y;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 28 * s, 0, Math.PI * 2);
+    ctx.arc(cx + 22 * s, cy - 8 * s, 22 * s, 0, Math.PI * 2);
+    ctx.arc(cx + 46 * s, cy, 26 * s, 0, Math.PI * 2);
+    ctx.arc(cx + 22 * s, cy + 6 * s, 18 * s, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ─── Mountain Layer ─────────────────────────────────────────────
+class MountainLayer {
+  constructor(W, H, color, yOffset, heightRange, segmentWidth) {
+    this.W = W; this.H = H;
+    this.color = color;
+    this.points = [];
+    this.segmentW = segmentWidth;
+    let x = 0;
+    while (x < W * 2) {
+      this.points.push({ x, y: yOffset + Math.random() * heightRange });
+      x += this.segmentWidth || segmentWidth;
+    }
+    this.speed = 0.3;
+    this.offset = 0;
+  }
+
+  update() {
+    this.offset += this.speed;
+    if (this.offset >= this.segmentW) {
+      this.offset -= this.segmentW;
+      this.points.shift();
+      this.points.push({
+        x: this.points[this.points.length - 1].x + this.segmentW,
+        y: this.H * (0.65 + Math.random() * 0.25)
+      });
+    }
+  }
+
+  draw(ctx) {
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.moveTo(0, this.H);
+    this.points.forEach(p => ctx.lineTo(p.x - this.offset, p.y));
+    ctx.lineTo(this.W * 2, this.H);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+// ─── Bird ────────────────────────────────────────────────────────
+class Bird {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.vel = 0;
+    this.r = 14;
+    this.wingPhase = 0;
+    this.trail = [];
+    this.dead = false;
+  }
+
+  flap(flapPower) {
+    this.vel = flapPower;
+    // Trail burst on flap
+    this.trail.push(new TrailParticle(this.x - 10, this.y, '#ffd700'));
+  }
+
+  update(gravity, H) {
+    this.vel += gravity;
+    this.y += this.vel;
+    this.wingPhase += 0.3;
+
+    // Trail
+    if (Math.random() > 0.5) this.trail.push(new TrailParticle(this.x - 8, this.y + 4, '#ffd70066'));
+    this.trail.forEach(p => p.update());
+    this.trail = this.trail.filter(p => p.alive);
+
+    return this.y < H - 60 && this.y > 0;
+  }
+
+  draw(ctx, frame) {
+    // Trail
+    this.trail.forEach(p => p.draw(ctx));
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    const angle = Math.min(Math.max(this.vel * 3, -30), 90) * Math.PI / 180;
+    ctx.rotate(angle);
+
+    // Body
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 15;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 18, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wing
+    ctx.fillStyle = '#ffaa00';
+    ctx.shadowBlur = 0;
+    const wingY = 4 + Math.sin(this.wingPhase) * 4;
+    ctx.beginPath();
+    ctx.ellipse(-2, wingY, 10, 6, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eye
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(6, -3, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(7, -3, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Beak
+    ctx.fillStyle = '#ff6600';
+    ctx.beginPath();
+    ctx.moveTo(12, 0);
+    ctx.lineTo(22, 2);
+    ctx.lineTo(12, 4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
+// ─── Pipe ───────────────────────────────────────────────────────
+class Pipe {
+  constructor(x, gapY, gap, W, H) {
+    this.x = x;
+    this.gapY = gapY;
+    this.gap = gap;
+    this.W = W;
+    this.H = H;
+    this.w = 50;
+    this.passed = false;
+  }
+
+  update(speed) { this.x -= speed; }
+
+  draw(ctx, frame) {
+    const g = ctx.createLinearGradient(this.x, 0, this.x + this.w, 0);
+    g.addColorStop(0, '#2d6a2d');
+    g.addColorStop(0.5, '#4a8a4a');
+    g.addColorStop(1, '#2d6a2d');
+
+    // Top pipe
+    ctx.fillStyle = g;
+    ctx.fillRect(this.x, 0, this.w, this.gapY);
+    ctx.fillStyle = '#3aaa3a';
+    ctx.fillRect(this.x, this.gapY - 22, this.w, 22);
+    // Highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillRect(this.x + 3, 0, 6, this.gapY - 22);
+    // Lip glow
+    ctx.fillStyle = '#5acc5a';
+    ctx.shadowColor = '#5acc5a';
+    ctx.shadowBlur = 6;
+    ctx.fillRect(this.x - 2, this.gapY - 24, this.w + 4, 4);
+    ctx.shadowBlur = 0;
+
+    // Bottom pipe
+    ctx.fillStyle = g;
+    ctx.fillRect(this.x, this.gapY + this.gap, this.w, this.H - (this.gapY + this.gap));
+    ctx.fillStyle = '#3aaa3a';
+    ctx.fillRect(this.x, this.gapY + this.gap, this.w, 20);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fillRect(this.x + 3, this.gapY + this.gap + 20, 6, this.H);
+    ctx.fillStyle = '#5acc5a';
+    ctx.shadowColor = '#5acc5a';
+    ctx.shadowBlur = 6;
+    ctx.fillRect(this.x - 2, this.gapY + this.gap, this.w + 4, 4);
+    ctx.shadowBlur = 0;
+  }
+
+  collides(bird) {
+    const bx = bird.x, by = bird.y, br = bird.r;
+    return bx + br > this.x && bx - br < this.x + this.w &&
+      (by - br < this.gapY || by + br > this.gapY + this.gap);
+  }
+}
+
+// ─── Scene Manager ───────────────────────────────────────────────
+class SceneManager {
+  constructor(W, H) {
+    this.W = W; this.H = H;
+    this.clouds = [];
+    this.mountains1 = new MountainLayer(W, H, '#0d1f0d', H * 0.5, H * 0.2, 80);
+    this.mountains2 = new MountainLayer(W, H, '#112211', H * 0.6, H * 0.15, 50);
+    this.mountains3 = new MountainLayer(W, H, '#1a331a', H * 0.7, H * 0.1, 40);
+    for (let i = 0; i < 8; i++) {
+      this.clouds.push(new Cloud(W, H));
+    }
+    this.timeOfDay = 0; // 0=day, 1=dusk, 2=night
+    this.frame = 0;
+  }
+
+  setTimeOfDay(t) {
+    this.timeOfDay = t;
+  }
+
+  update() {
+    this.frame++;
+    this.clouds.forEach(c => c.update());
+    this.mountains1.update();
+    this.mountains2.update();
+    this.mountains3.update();
+  }
+
+  draw(ctx) {
+    const palettes = [
+      // Day
+      { sky: ['#1a3a7a', '#4488cc', '#87ceeb'], ground: '#1a4a1a', accent: '#2a7a2a' },
+      // Dusk
+      { sky: ['#1a0a2e', '#6b2a5a', '#e06040'], ground: '#2a1a0a', accent: '#5a3a1a' },
+      // Night
+      { sky: ['#000008', '#050520', '#0a0a35'], ground: '#0a1a0a', accent: '#1a3a1a' }
+    ];
+    const p = palettes[this.timeOfDay];
+    const gy = this.H - 60;
+
+    // Sky gradient
+    const sky = ctx.createLinearGradient(0, 0, 0, gy);
+    p.sky.forEach((c, i) => sky.addColorStop(i / (p.sky.length - 1), c));
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, this.W, gy);
+
+    // Stars at night
+    if (this.timeOfDay === 2) {
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 60; i++) {
+        const sx = (i * 47 + this.frame * 0.1) % this.W;
+        const sy = (i * 73) % (gy - 20);
+        const tw = 0.3 + 0.7 * Math.abs(Math.sin(this.frame * 0.02 + i));
+        ctx.globalAlpha = tw;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Moon at night
+    if (this.timeOfDay === 2) {
+      ctx.fillStyle = '#ffffcc';
+      ctx.shadowColor = '#ffffaa';
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.arc(this.W * 0.8, 50, 20, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = p.sky[0];
+      ctx.beginPath();
+      ctx.arc(this.W * 0.8 + 7, 46, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // Mountains
+    this.mountains1.draw(ctx);
+    this.mountains2.draw(ctx);
+    this.mountains3.draw(ctx);
+
+    // Clouds
+    this.clouds.forEach(c => c.draw(ctx));
+
+    // Ground
+    const groundGrad = ctx.createLinearGradient(0, gy, 0, this.H);
+    groundGrad.addColorStop(0, p.accent);
+    groundGrad.addColorStop(0.1, p.ground);
+    groundGrad.addColorStop(1, '#0a100a');
+    ctx.fillStyle = groundGrad;
+    ctx.fillRect(0, gy, this.W, 60);
+
+    // Ground grass line
+    ctx.strokeStyle = p.accent === '#1a3a1a' ? '#3a6a3a' : (p.accent === '#5a3a1a' ? '#8a5a2a' : '#4a7a4a');
+    ctx.lineWidth = 3;
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.moveTo(0, gy);
+    ctx.lineTo(this.W, gy);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ─── Game ────────────────────────────────────────────────────────
+class Game {
+  constructor() {
+    this.canvas = document.getElementById('c');
+    this.ctx = this.canvas.getContext('2d');
+    this.W = 400; this.H = 560;
+    this.canvas.width = this.W; this.canvas.height = this.H;
+
+    this.GRAVITY = 0.55;
+    this.FLAP = -9.5;
+    this.GAP = 155;
+    this.PIPE_SPEED = 3;
+    this.PIPE_INTERVAL = 80;
+
+    this.high = parseInt(localStorage.getItem('flappy_hs') || '0');
+    document.getElementById('h').textContent = this.high;
+
+    this.scene = new SceneManager(this.W, this.H);
+    this.state = 'idle'; // idle, play, over
+    this.frame = 0;
+    this.particles = [];
+
+    // Random time of day
+    this.scene.setTimeOfDay(Math.floor(Math.random() * 3));
+
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Space') e.preventDefault();
+      if (this.state === 'idle') this.startGame();
+      else if (this.state === 'play' && e.code === 'Space') this.flap();
+      else if (this.state === 'over') this.startGame();
+    });
+    this.canvas.addEventListener('click', () => {
+      if (this.state === 'idle') this.startGame();
+      else if (this.state === 'play') this.flap();
+      else if (this.state === 'over') this.startGame();
+    });
+
+    this.loop();
+  }
+
+  startGame() {
+    this.bird = new Bird(this.W * 0.25, this.H / 2);
+    this.pipes = [];
+    this.particles = [];
+    this.score = 0;
+    this.frame = 0;
+    this.state = 'play';
+    // New random time of day each game
+    this.scene.setTimeOfDay(Math.floor(Math.random() * 3));
+    document.getElementById('s').textContent = '0';
+  }
+
+  flap() {
+    this.bird.flap(this.FLAP);
+    this.particles.push(new Particle(this.bird.x - 10, this.bird.y, '#ffd700', 6, { speed: 2, r: 2, decay: 0.05, upward: true, spread: 1 }));
+  }
+
+  spawnPipe() {
+    const minH = 60, maxH = this.H - this.GAP - 100;
+    const topH = minH + Math.random() * (maxH - minH);
+    this.pipes.push(new Pipe(this.W + 40, topH, this.GAP, this.W, this.H));
+  }
+
+  update() {
+    this.scene.update();
+    if (this.state !== 'play') return;
+    this.frame++;
+
+    const alive = this.bird.update(this.GRAVITY, this.H);
+    if (!alive) { this._die(); return; }
+
+    if (this.frame % this.PIPE_INTERVAL === 0) this.spawnPipe();
+    this.pipes.forEach(p => p.update(this.PIPE_SPEED));
+    this.pipes = this.pipes.filter(p => p.x > -60);
+
+    // Score
+    this.pipes.forEach(p => {
+      if (!p.passed && p.x + p.w < this.bird.x) {
+        p.passed = true;
+        this.score++;
+        document.getElementById('s').textContent = this.score;
+        if (this.score > this.high) {
+          this.high = this.score;
+          document.getElementById('h').textContent = this.high;
+          localStorage.setItem('flappy_hs', this.high);
+        }
+        // Score particles
+        this.particles.push(new Particle(this.bird.x, this.bird.y - 20, '#ffd700', 12, { speed: 3, r: 3 }));
+      }
+    });
+
+    // Collision
+    for (const p of this.pipes) {
+      if (p.collides(this.bird)) { this._die(); return; }
+    }
+  }
+
+  _die() {
+    this.state = 'over';
+    // Explosion particles
+    for (let i = 0; i < 30; i++) {
+      this.particles.push(new Particle(this.bird.x, this.bird.y, '#ffd700', 1, { speed: 5, r: 4, decay: 0.03 }));
+      this.particles.push(new Particle(this.bird.x, this.bird.y, '#ff6600', 1, { speed: 4, r: 3, decay: 0.04 }));
+    }
+  }
+
+  draw() {
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.W, this.H);
+
+    this.scene.draw(ctx);
+    this.pipes.forEach(p => p.draw(ctx, this.frame));
+
+    if (this.state !== 'idle') {
+      this.bird.draw(ctx, this.frame);
+    }
+
+    // Particles
+    this.particles.forEach(p => p.update());
+    this.particles.forEach(p => p.draw(ctx));
+    this.particles = this.particles.filter(p => p.alive);
+
+    if (this.state === 'over') {
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(0, 0, this.W, this.H);
+      ctx.fillStyle = '#ef4444';
+      ctx.font = 'bold 32px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('💀 撞到了！', this.W / 2, this.H / 2 - 40);
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 40px monospace';
+      ctx.fillText('分数: ' + this.score, this.W / 2, this.H / 2 + 10);
+      ctx.fillStyle = '#888';
+      ctx.font = '16px monospace';
+      ctx.fillText('按任意键重试', this.W / 2, this.H / 2 + 50);
+    } else if (this.state === 'idle') {
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(0, 0, this.W, this.H);
+      ctx.fillStyle = '#ffd700';
+      ctx.shadowColor = '#ffd700';
+      ctx.shadowBlur = 20;
+      ctx.font = 'bold 28px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🐦 Flappy鸟', this.W / 2, this.H / 2 - 20);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#aaa';
+      ctx.font = '16px monospace';
+      ctx.fillText('按空格/点击 开始', this.W / 2, this.H / 2 + 20);
+    }
+  }
+
+  loop() {
+    this.update();
+    this.draw();
+    requestAnimationFrame(() => this.loop());
+  }
+}
+
+new Game();
+</script></body></html>
