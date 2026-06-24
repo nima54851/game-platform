@@ -24,19 +24,20 @@ class SceneManager {
     this.frame = 0;
     this.scanlinePattern = null;
     this._buildScanlines();
-    // Ambient background grid
     this.gridLines = [];
     for (let x = 0; x < W; x += 40) this.gridLines.push({ x, vert: true });
     for (let y = 0; y < H; y += 40) this.gridLines.push({ y, vert: false });
   }
 
   _buildScanlines() {
-    const oc = document.createElement('canvas');
-    oc.width = 4; oc.height = 4;
-    const octx = oc.getContext('2d');
-    octx.fillStyle = 'rgba(0,0,0,0.12)';
-    octx.fillRect(0, 0, 4, 2);
-    this.scanlinePattern = document.createPattern(oc, 'repeat');
+    try {
+      const oc = document.createElement('canvas');
+      oc.width = 4; oc.height = 4;
+      const octx = oc.getContext('2d');
+      octx.fillStyle = 'rgba(0,0,0,0.12)';
+      octx.fillRect(0, 0, 4, 2);
+      this.scanlinePattern = document.createPattern(oc, 'repeat');
+    } catch(e) { this.scanlinePattern = null; }
   }
 
   update() { this.frame++; }
@@ -44,15 +45,16 @@ class SceneManager {
   draw() {
     const ctx = this.ctx;
 
-    // Background
+    // Background with rich gradient
     const bg = ctx.createRadialGradient(this.W / 2, this.H / 2, 0, this.W / 2, this.H / 2, this.W * 0.8);
-    bg.addColorStop(0, '#0a0a18');
-    bg.addColorStop(1, '#05050f');
+    bg.addColorStop(0, '#0d0d24');
+    bg.addColorStop(0.5, '#080820');
+    bg.addColorStop(1, '#040410');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, this.W, this.H);
 
-    // Subtle grid
-    ctx.strokeStyle = 'rgba(0,212,255,0.04)';
+    // Grid lines (more visible)
+    ctx.strokeStyle = 'rgba(0,212,255,0.06)';
     ctx.lineWidth = 1;
     this.gridLines.forEach(l => {
       ctx.beginPath();
@@ -62,10 +64,12 @@ class SceneManager {
     });
 
     // Scanlines
-    ctx.fillStyle = this.scanlinePattern;
-    ctx.fillRect(0, 0, this.W, this.H);
+    if (this.scanlinePattern) {
+      ctx.fillStyle = this.scanlinePattern;
+      ctx.fillRect(0, 0, this.W, this.H);
+    }
 
-    // Neon glow pulse on border
+    // Neon border pulse
     const pulse = 0.15 + 0.1 * Math.sin(this.frame * 0.05);
     ctx.strokeStyle = `rgba(0,212,255,${pulse})`;
     ctx.shadowColor = '#00d4ff';
@@ -76,7 +80,7 @@ class SceneManager {
   }
 }
 
-// ─── Particle ────────────────────────────────────────────────────
+// ─── Particle (ENHANCED: more colorful line-clear explosion) ─────
 class Particle {
   constructor(x, y, color, count = 20) {
     this.parts = [];
@@ -88,9 +92,10 @@ class Particle {
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - 1,
         life: 1,
-        decay: 0.015 + Math.random() * 0.025,
-        r: 3 + Math.random() * 5,
-        color
+        decay: 0.012 + Math.random() * 0.025,
+        r: 3 + Math.random() * 6,
+        color,
+        isSpark: Math.random() > 0.5
       });
     }
   }
@@ -99,7 +104,7 @@ class Particle {
     this.parts.forEach(p => {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.08;
+      p.vy += 0.1;
       p.vx *= 0.97;
       p.life -= p.decay;
     });
@@ -111,19 +116,22 @@ class Particle {
       ctx.globalAlpha = Math.max(0, p.life);
       ctx.fillStyle = p.color;
       ctx.shadowColor = p.color;
-      ctx.shadowBlur = 8;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
-      ctx.fill();
-      // Spark line
-      if (p.life > 0.5) {
-        ctx.globalAlpha = p.life * 0.5;
+      ctx.shadowBlur = p.isSpark ? 12 : 6;
+      if (p.isSpark) {
+        // Spark: line trail
         ctx.strokeStyle = p.color;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(p.x, p.y);
-        ctx.lineTo(p.x - p.vx * 2, p.y - p.vy * 2);
+        ctx.lineTo(p.x - p.vx * 2.5, p.y - p.vy * 2.5);
         ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+        ctx.fill();
       }
     });
     ctx.globalAlpha = 1;
@@ -139,19 +147,19 @@ class Block {
     this.r = r; this.c = c;
     this.color = color;
     this.locked = false;
-    this.flash = 0; // 0-1 flash on lock
+    this.flash = 0;
   }
 }
 
-// ─── Piece ────────────────────────────────────────────────────────
+// ─── Piece (ENHANCED: neon glow + shimmer) ────────────────────────
 const PIECE_DEFS = [
-  { s: [[1, 1, 1, 1]], c: '#00d4ff' },   // I
-  { s: [[1, 1], [1, 1]], c: '#f59e0b' },   // O
-  { s: [[0, 1, 0], [1, 1, 1]], c: '#a855f7' }, // T
-  { s: [[1, 0, 0], [1, 1, 1]], c: '#10b981' }, // S type (L)
-  { s: [[0, 0, 1], [1, 1, 1]], c: '#ef4444' }, // reverse L
-  { s: [[1, 1, 0], [0, 1, 1]], c: '#06b6d4' }, // Z
-  { s: [[0, 1, 1], [1, 1, 0]], c: '#f97316' }, // reverse Z
+  { s: [[1, 1, 1, 1]], c: '#00d4ff' },
+  { s: [[1, 1], [1, 1]], c: '#f59e0b' },
+  { s: [[0, 1, 0], [1, 1, 1]], c: '#a855f7' },
+  { s: [[1, 0, 0], [1, 1, 1]], c: '#10b981' },
+  { s: [[0, 0, 1], [1, 1, 1]], c: '#ef4444' },
+  { s: [[1, 1, 0], [0, 1, 1]], c: '#06b6d4' },
+  { s: [[0, 1, 1], [1, 1, 0]], c: '#f97316' },
 ];
 
 class Piece {
@@ -166,12 +174,9 @@ class Piece {
     const ns = this.s[0].map((_, i) => this.s.map(row => row[i]).reverse());
     const oldS = this.s;
     this.s = ns;
-    // Wall kick
     const kicks = [0, -1, 1, -2, 2];
     for (const kick of kicks) {
-      if (!this._collide(board, px + kick, py)) {
-        px += kick; break;
-      }
+      if (!this._collide(board, px + kick, py)) { px += kick; break; }
     }
     if (this._collide(board, px, py)) { this.s = oldS; return false; }
     return true;
@@ -195,8 +200,8 @@ class Piece {
     for (let r = 0; r < this.s.length; r++) {
       for (let c = 0; c < this.s[r].length; c++) {
         if (this.s[r][c] && py + r >= 0) {
-          ctx.fillStyle = 'rgba(255,255,255,0.05)';
-          ctx.strokeStyle = `rgba(255,255,255,${0.1 + 0.1 * Math.sin(this.glowPhase)})`;
+          ctx.fillStyle = 'rgba(255,255,255,0.04)';
+          ctx.strokeStyle = `rgba(255,255,255,${0.08 + 0.08 * Math.sin(this.glowPhase)})`;
           ctx.lineWidth = 1;
           const x = PAD + (px + c) * CELL, y = PAD + (ghostY + r) * CELL;
           ctx.beginPath();
@@ -208,24 +213,35 @@ class Piece {
   }
 
   draw(ctx, px, py, PAD, CELL, frame) {
-    this.glowPhase += 0.05;
+    this.glowPhase += 0.06;
     for (let r = 0; r < this.s.length; r++) {
       for (let c = 0; c < this.s[r].length; c++) {
         if (this.s[r][c] && py + r >= 0) {
-          const glow = 0.7 + 0.3 * Math.sin(this.glowPhase + c * 0.5 + r * 0.3);
+          const glow = 0.6 + 0.4 * Math.sin(this.glowPhase + c * 0.5 + r * 0.3);
+          // Outer neon glow
           ctx.shadowColor = this.c;
-          ctx.shadowBlur = 12 * glow;
+          ctx.shadowBlur = 16 * glow;
           ctx.fillStyle = this.c;
           const x = PAD + (px + c) * CELL, y = PAD + (py + r) * CELL;
           ctx.beginPath();
           ctx.roundRect(x, y, CELL - 1, CELL - 1, 3);
           ctx.fill();
-          // Inner highlight
-          ctx.fillStyle = 'rgba(255,255,255,0.25)';
-          ctx.beginPath();
-          ctx.roundRect(x + 2, y + 2, CELL - 7, CELL - 7, 2);
-          ctx.fill();
+          // Inner shimmer highlight
           ctx.shadowBlur = 0;
+          const shimGrad = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
+          shimGrad.addColorStop(0, 'rgba(255,255,255,0.3)');
+          shimGrad.addColorStop(0.4, 'rgba(255,255,255,0.08)');
+          shimGrad.addColorStop(1, 'rgba(0,0,0,0.15)');
+          ctx.fillStyle = shimGrad;
+          ctx.beginPath();
+          ctx.roundRect(x, y, CELL - 1, CELL - 1, 3);
+          ctx.fill();
+          // Edge highlight
+          ctx.strokeStyle = `rgba(255,255,255,${0.25 * glow})`;
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.roundRect(x + 0.5, y + 0.5, CELL - 2, CELL - 2, 2.5);
+          ctx.stroke();
         }
       }
     }
@@ -256,7 +272,6 @@ class Game {
     this.spawn();
 
     document.addEventListener('keydown', e => this.handleKey(e));
-    // Show start screen, wait for button
     document.getElementById('overlay').style.display = 'flex';
     document.getElementById('start-btn').addEventListener('click', () => this._doStart());
     this._started = false;
@@ -277,9 +292,7 @@ class Game {
     this.nextPiece = this.randomPiece();
     this.px = Math.floor((this.COLS - this.piece.s[0].length) / 2);
     this.py = 0;
-    if (this._collide(0, 0)) {
-      this.gameOver();
-    }
+    if (this._collide(0, 0)) this.gameOver();
   }
 
   _collide(ox, oy, shape) {
@@ -318,15 +331,18 @@ class Game {
     }
 
     if (lines > 0) {
-      // Spawn particles for each cleared row
+      // Colorful particle explosion for each cleared row
+      const explosionColors = ['#00d4ff', '#a855f7', '#10b981', '#f59e0b', '#ef4444', '#ffffff', '#06b6d4', '#f97316'];
       clearedRows.forEach(row => {
         for (let c = 0; c < this.COLS; c++) {
-          const color = this.board[row][c] || '#ffffff';
-          this.particles.push(new Particle(
-            this.PAD + c * this.CELL + this.CELL / 2,
-            this.PAD + row * this.CELL + this.CELL / 2,
-            color, 8
-          ));
+          const color = this.board[row][c] || explosionColors[Math.floor(Math.random() * explosionColors.length)];
+          const cx = this.PAD + c * this.CELL + this.CELL / 2;
+          const cy = this.PAD + row * this.CELL + this.CELL / 2;
+          this.particles.push(new Particle(cx, cy, color, 12));
+          // Extra white sparks
+          if (Math.random() > 0.6) {
+            this.particles.push(new Particle(cx, cy, '#ffffff', 4));
+          }
         }
       });
 
@@ -393,19 +409,28 @@ class Game {
         ctx.fill();
         if (this.board[r][c]) {
           const color = this.board[r][c];
+          // Neon glow
           ctx.shadowColor = color;
-          ctx.shadowBlur = 8;
+          ctx.shadowBlur = 10;
           ctx.fillStyle = color;
           ctx.beginPath();
           ctx.roundRect(x, y, CELL - 1, CELL - 1, 3);
           ctx.fill();
-          ctx.fillStyle = 'rgba(255,255,255,0.2)';
-          ctx.beginPath();
-          ctx.roundRect(x + 2, y + 2, CELL - 7, CELL - 7, 2);
-          ctx.fill();
+          // Shimmer
           ctx.shadowBlur = 0;
+          const shimGrad = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
+          shimGrad.addColorStop(0, 'rgba(255,255,255,0.25)');
+          shimGrad.addColorStop(1, 'rgba(0,0,0,0.1)');
+          ctx.fillStyle = shimGrad;
+          ctx.beginPath();
+          ctx.roundRect(x, y, CELL - 1, CELL - 1, 3);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.roundRect(x + 0.5, y + 0.5, CELL - 2, CELL - 2, 2);
+          ctx.stroke();
         }
-        // Cell grid
         ctx.strokeStyle = 'rgba(255,255,255,0.04)';
         ctx.lineWidth = 0.5;
         ctx.beginPath();
@@ -415,14 +440,10 @@ class Game {
     }
 
     // Ghost piece
-    if (this.piece) {
-      this.piece.drawGhost(ctx, this.board, this.px, this.py, PAD, CELL);
-    }
+    if (this.piece) this.piece.drawGhost(ctx, this.board, this.px, this.py, PAD, CELL);
 
-    // Active piece
-    if (this.piece) {
-      this.piece.draw(ctx, this.px, this.py, PAD, CELL, this.frame);
-    }
+    // Active piece with neon
+    if (this.piece) this.piece.draw(ctx, this.px, this.py, PAD, CELL, this.frame);
 
     // Particles
     this.particles.forEach(p => p.draw(ctx));
@@ -446,7 +467,7 @@ class Game {
         for (let c = 0; c < ns[r].length; c++) {
           if (ns[r][c]) {
             ctx.shadowColor = this.nextPiece.c;
-            ctx.shadowBlur = 8;
+            ctx.shadowBlur = 10;
             ctx.fillStyle = this.nextPiece.c;
             ctx.beginPath();
             ctx.roundRect(ox + c * 20, oy + r * 20, 18, 18, 3);
@@ -457,7 +478,7 @@ class Game {
       }
     }
 
-    // Neon side border glow
+    // Neon border
     const glowPulse = 0.3 + 0.2 * Math.sin(this.frame * 0.06);
     ctx.strokeStyle = `rgba(0,212,255,${glowPulse})`;
     ctx.shadowColor = '#00d4ff';
@@ -493,6 +514,7 @@ class Game {
     document.getElementById('lv').textContent = '1';
     this.spawn();
   }
+
   loop() {
     if (!this._started) { this.draw(); requestAnimationFrame(() => this.loop()); return; }
     this.update();
