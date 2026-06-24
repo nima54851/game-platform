@@ -25,115 +25,261 @@ canvas{border-radius:8px;display:block}
 </div>
 <canvas id="c"></canvas>
 <script>
-const canvas=document.getElementById('c');
-const ctx=canvas.getContext('2d');
-const W=Math.min(600,window.innerWidth-20),H=Math.min(400,window.innerHeight-80);
-canvas.width=W;canvas.height=H;
-let player,obstacles,particles,score,high,gameOver,frame,speed,groundY;
-high=parseInt(localStorage.getItem('dino_hs')||'0');
-document.getElementById('h').textContent=high;
-particles=[];
-groundY=H-60;
-function init(){player={x:60,y:groundY-40,w:36,h:40,vvy:0,onGround:true};obstacles=[];particles=[];score=0;frame=0;speed=4;gameOver=false;
-  document.getElementById('s').textContent=0;}
-function spawnObs(){
-  const types=['cactus','bird'];
-  const type=types[Math.floor(Math.random()*types.length)];
-  obstacles.push({x:W+20,y:type==='bird'?groundY-80:groundY-40,w:type==='bird'?50:25,h:type==='bird'?30:40,type,vx:-speed});
+// ============================================================
+// CLASSES
+// ============================================================
+class Particle {
+  constructor(x, y, color, vx, vy, r, decay) {
+    this.x = x; this.y = y;
+    this.vx = vx !== undefined ? vx : (Math.random() - 0.5) * 4;
+    this.vy = vy !== undefined ? vy : -Math.random() * 4;
+    this.color = color;
+    this.r = r !== undefined ? r : 2 + Math.random() * 3;
+    this.life = 1;
+    this.decay = decay !== undefined ? decay : 0.04;
+  }
+  update() {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += 0.15;
+    this.life -= this.decay;
+  }
+  draw(ctx) {
+    ctx.globalAlpha = Math.max(0, this.life);
+    ctx.fillStyle = this.color;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r * this.life, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+  isDead() { return this.life <= 0; }
 }
-function spawnP(x,y,color){
-  particles.push({x,y,vx:(Math.random()-.5)*4,vy:-Math.random()*4,life:1,decay:.04,color,r:2+Math.random()*3});
+
+class Cloud {
+  constructor(x, y, speed, scale) {
+    this.x = x; this.y = y; this.speed = speed; this.scale = scale || 1;
+  }
+  update(W) {
+    this.x -= this.speed;
+    if (this.x < -80) this.x = W + 80;
+  }
+  draw(ctx, frame) {
+    const ox = (frame * this.speed * 0.1) % 20;
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.beginPath();
+    ctx.ellipse(this.x + ox, this.y, 40 * this.scale, 14 * this.scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(this.x + ox - 20 * this.scale, this.y + 6 * this.scale, 25 * this.scale, 10 * this.scale, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
-function jump(){
-  if(gameOver){start();return;}
-  if(player.onGround){player.vvy=-14;player.onGround=false;}
-}
-document.addEventListener('keydown',e=>{if(['Space','ArrowUp','KeyW'].includes(e.code)){e.preventDefault();jump();}});
-canvas.addEventListener('click',jump);
-function update(){
-  if(gameOver)return;
-  frame++;
-  if(frame%5===0){score++;document.getElementById('s').textContent=score;if(score>high){high=score;document.getElementById('h').textContent=high;localStorage.setItem('dino_hs',high);}}
-  if(frame%Math.max(50,120-speed*5)===0)spawnObs();
-  player.vvy+=0.7;
-  player.y+=player.vvy;
-  if(player.y>=groundY-player.h){player.y=groundY-player.h;player.vvy=0;player.onGround=true;}
-  if(frame%Math.max(20,60-speed*3)===0)speed=Math.min(12,speed+0.05);
-  obstacles.forEach(o=>{o.x+=o.vx;});
-  obstacles=obstacles.filter(o=>o.x>-60);
-  for(const o of obstacles){
-    if(player.x<o.x+o.w&&player.x+player.w>o.x&&player.y<o.y+o.h&&player.y+player.h>o.y){
-      gameOver=true;
-      for(let i=0;i<15;i++)spawnP(player.x+player.w/2,player.y+player.h/2,'#ff4444');
-      setTimeout(()=>{document.getElementById('overlay').querySelector('h1').textContent='💥 撞到了！';
-        document.getElementById('overlay').style.display='flex';},400);
+
+class Dino {
+  constructor(x, y, w, h) {
+    this.x = x; this.y = y; this.w = w; this.h = h;
+    this.vvy = 0; this.onGround = true;
+  }
+  jump() { if (this.onGround) { this.vvy = -14; this.onGround = false; } }
+  update(groundY) {
+    this.vvy += 0.7;
+    this.y += this.vvy;
+    if (this.y >= groundY - this.h) {
+      this.y = groundY - this.h;
+      this.vvy = 0;
+      this.onGround = true;
     }
   }
-  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life-=p.decay;});
-  particles=particles.filter(p=>p.life>0);
+  getBounds() { return { x: this.x, y: this.y, w: this.w, h: this.h }; }
+  draw(ctx, frame) {
+    const px = this.x, py = this.y, pw = this.w, ph = this.h;
+    ctx.fillStyle = '#00ff88'; ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 10;
+    ctx.beginPath(); ctx.roundRect(px, py, pw, ph * 0.7, 6); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(px + pw - 10, py - ph * 0.3, pw * 0.6, ph * 0.45, 4); ctx.fill();
+    ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(px + pw, py - ph * 0.15, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    const legOff = Math.sin(frame * 0.3) * 8;
+    ctx.fillStyle = '#00cc66';
+    ctx.fillRect(px + 4, py + ph * 0.6, 8, ph * 0.4);
+    ctx.fillRect(px + pw - 12, py + ph * 0.6 + legOff * 0.5, 8, ph * 0.4 - legOff * 0.5);
+    ctx.fillStyle = '#00cc66';
+    ctx.beginPath(); ctx.moveTo(px, py + ph * 0.2); ctx.lineTo(px - 12, py + ph * 0.1); ctx.lineTo(px, py + ph * 0.5); ctx.fill();
+  }
 }
-function draw(){
-  // Sky gradient
-  const sky=ctx.createLinearGradient(0,0,0,H);
-  sky.addColorStop(0,'#1a1a3a');sky.addColorStop(1,'#0a0a1a');
-  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
-  // Sun
-  const sun=ctx.createRadialGradient(W-80,60,0,W-80,60,50);
-  sun.addColorStop(0,'rgba(255,200,100,.3)');sun.addColorStop(1,'rgba(255,200,100,0)');
-  ctx.fillStyle=sun;ctx.fillRect(0,0,W,H);
-  // Ground
-  ctx.fillStyle='#0a1a0a';ctx.fillRect(0,groundY,W,H-groundY);
-  ctx.strokeStyle='#1a3a1a';ctx.lineWidth=2;
-  for(let i=0;i<W;i+=20){ctx.beginPath();ctx.moveTo(i,groundY);ctx.lineTo(i+10,groundY+2);ctx.stroke();}
-  // Clouds
-  ctx.fillStyle='rgba(255,255,255,.03)';
-  [[100,80],[300,60],[500,90]].forEach(([cx,cy])=>{ctx.beginPath();ctx.ellipse(cx+(frame*.3)%W,cy,40,15,0,0,Math.PI*2);ctx.fill();});
-  // Player (dino shape)
-  const px=player.x,py=player.y,pw=player.w,ph=player.h;
-  ctx.fillStyle='#00ff88';ctx.shadowColor='#00ff88';ctx.shadowBlur=10;
-  ctx.beginPath();
-  ctx.roundRect(px,py,pw,ph*.7,6);
-  ctx.fill();
-  // Dino head
-  ctx.beginPath();ctx.roundRect(px+pw-10,py-ph*.3,pw*.6,ph*.45,4);ctx.fill();
-  // Eye
-  ctx.fillStyle='#000';ctx.beginPath();ctx.arc(px+pw,py-ph*.15,3,0,Math.PI*2);ctx.fill();
-  ctx.shadowBlur=0;
-  // Legs animation
-  const legOff=Math.sin(frame*.3)*8;
-  ctx.fillStyle='#00cc66';
-  ctx.fillRect(px+4,py+ph*.6,8,ph*.4);
-  ctx.fillRect(px+pw-12,py+ph*.6+legOff*.5,8,ph*.4-legOff*.5);
-  // Tail
-  ctx.fillStyle='#00cc66';
-  ctx.beginPath();ctx.moveTo(px,py+ph*.2);ctx.lineTo(px-12,py+ph*.1);ctx.lineTo(px,py+ph*.5);ctx.fill();
-  // Obstacles
-  obstacles.forEach(o=>{
-    if(o.type==='cactus'){
-      ctx.fillStyle='#00aa44';ctx.shadowColor='#00ff88';ctx.shadowBlur=5;
-      ctx.fillRect(o.x+o.w/2-4,o.y,8,o.h);
-      ctx.fillRect(o.x,o.y+o.h*.3,10,6);ctx.fillRect(o.x+o.w-10,o.y+o.h*.5,10,6);
-      ctx.fillRect(o.x+o.w/2-8,o.y+o.h*.6,6,6);ctx.fillRect(o.x+o.w/2+2,o.y+o.h*.5,6,6);
-      ctx.shadowBlur=0;
-    }else{
-      // Bird
-      ctx.fillStyle='#ffca28';ctx.shadowColor='#ffca28';ctx.shadowBlur=8;
-      ctx.beginPath();ctx.ellipse(o.x+o.w/2,o.y+o.h/2,o.w/2,o.h/2,0,0,Math.PI*2);ctx.fill();
-      // Wings
-      const wingY=Math.sin(frame*.2)*8;
-      ctx.beginPath();ctx.ellipse(o.x+o.w*.3,o.y-wingY,o.w*.25,o.h*.3,0,0,Math.PI*2);ctx.fill();
-      ctx.beginPath();ctx.ellipse(o.x+o.w*.7,o.y+wingY,o.w*.25,o.h*.3,0,0,Math.PI*2);ctx.fill();
-      ctx.shadowBlur=0;
+
+class Obstacle {
+  constructor(x, y, w, h, type) {
+    this.x = x; this.y = y; this.w = w; this.h = h; this.type = type;
+    this.vx = -4;
+  }
+  update(speed) { this.x += speed; }
+  isOffScreen(W) { return this.x < -80; }
+  getBounds() { return { x: this.x, y: this.y, w: this.w, h: this.h }; }
+  draw(ctx, frame) {
+    if (this.type === 'cactus') {
+      ctx.fillStyle = '#00aa44'; ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 5;
+      ctx.fillRect(this.x + this.w / 2 - 4, this.y, 8, this.h);
+      ctx.fillRect(this.x, this.y + this.h * 0.3, 10, 6);
+      ctx.fillRect(this.x + this.w - 10, this.y + this.h * 0.5, 10, 6);
+      ctx.fillRect(this.x + this.w / 2 - 8, this.y + this.h * 0.6, 6, 6);
+      ctx.fillRect(this.x + this.w / 2 + 2, this.y + this.h * 0.5, 6, 6);
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = '#ffca28'; ctx.shadowColor = '#ffca28'; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.ellipse(this.x + this.w / 2, this.y + this.h / 2, this.w / 2, this.h / 2, 0, 0, Math.PI * 2); ctx.fill();
+      const wingY = Math.sin(frame * 0.2) * 8;
+      ctx.beginPath(); ctx.ellipse(this.x + this.w * 0.3, this.y - wingY, this.w * 0.25, this.h * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(this.x + this.w * 0.7, this.y + wingY, this.w * 0.25, this.h * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
     }
-  });
-  // Particles
-  particles.forEach(p=>{ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});
-  ctx.globalAlpha=1;
+  }
 }
-function start(){
-  document.getElementById('overlay').style.display='none';
-  document.getElementById('overlay').querySelector('h1').textContent='🦖 跑酷小恐龙';
-  init();loop();}
-function loop(){update();draw();requestAnimationFrame(loop);}
-document.getElementById('overlay').style.display='flex';init();loop();
+
+// ============================================================
+// GAME
+// ============================================================
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = Math.min(600, window.innerWidth - 20);
+const H = Math.min(400, window.innerHeight - 80);
+canvas.width = W; canvas.height = H;
+
+let player, obstacles, particles, clouds, score, high, gameOver, frame, speed, groundY;
+high = parseInt(localStorage.getItem('dino_hs') || '0');
+document.getElementById('h').textContent = high;
+groundY = H - 60;
+
+function init() {
+  player = new Dino(60, groundY - 40, 36, 40);
+  obstacles = []; particles = [];
+  clouds = [
+    new Cloud(80, 60, 0.3, 1.2),
+    new Cloud(280, 45, 0.5, 0.8),
+    new Cloud(480, 80, 0.35, 1.0),
+    new Cloud(W + 150, 55, 0.4, 1.1),
+  ];
+  score = 0; frame = 0; speed = 4; gameOver = false;
+  document.getElementById('s').textContent = 0;
+}
+
+function spawnObs() {
+  const types = ['cactus', 'bird'];
+  const type = types[Math.floor(Math.random() * types.length)];
+  const y = type === 'bird' ? groundY - 80 : groundY - 40;
+  const w = type === 'bird' ? 50 : 25;
+  const h = type === 'bird' ? 30 : 40;
+  obstacles.push(new Obstacle(W + 20, y, w, h, type));
+}
+
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) particles.push(new Particle(x, y, color));
+}
+
+function spawnDust(x, y) {
+  for (let i = 0; i < 5; i++) {
+    particles.push(new Particle(x + Math.random() * 10 - 5, y, '#8B6914',
+      (Math.random() - 0.5) * 2, -Math.random() * 2, 2 + Math.random() * 2, 0.06));
+  }
+}
+
+function jump() {
+  if (gameOver) { start(); return; }
+  if (player.onGround) {
+    player.jump();
+    spawnDust(player.x + player.w / 2, player.y + player.h);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (['Space', 'ArrowUp', 'KeyW'].includes(e.code)) { e.preventDefault(); jump(); }
+});
+canvas.addEventListener('click', jump);
+
+function update() {
+  if (gameOver) return;
+  frame++;
+  if (frame % 5 === 0) {
+    score++;
+    document.getElementById('s').textContent = score;
+    if (score > high) {
+      high = score;
+      document.getElementById('h').textContent = high;
+      localStorage.setItem('dino_hs', high);
+    }
+  }
+  if (frame % Math.max(50, 120 - speed * 5) === 0) spawnObs();
+  player.update(groundY);
+  // Spawn ground dust while running
+  if (player.onGround && frame % 8 === 0) {
+    spawnDust(player.x + player.w / 2, groundY);
+  }
+  if (frame % Math.max(20, 60 - speed * 3) === 0) speed = Math.min(12, speed + 0.05);
+  obstacles.forEach(o => o.update(speed));
+  obstacles = obstacles.filter(o => !o.isOffScreen(W));
+  for (const o of obstacles) {
+    const b1 = player.getBounds(), b2 = o.getBounds();
+    if (b1.x < b2.x + b2.w && b1.x + b1.w > b2.x && b1.y < b2.y + b2.h && b1.y + b1.h > b2.y) {
+      gameOver = true;
+      for (let i = 0; i < 20; i++) spawnParticles(player.x + player.w / 2, player.y + player.h / 2, '#ff4444', 1);
+      for (let i = 0; i < 15; i++) spawnParticles(player.x + player.w / 2, player.y + player.h / 2, '#ff8800', 1);
+      setTimeout(() => {
+        document.getElementById('overlay').querySelector('h1').textContent = '💥 撞到了！';
+        document.getElementById('overlay').style.display = 'flex';
+      }, 400);
+    }
+  }
+  particles.forEach(p => p.update());
+  particles = particles.filter(p => !p.isDead());
+}
+
+function draw() {
+  // Sky gradient
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#1a1a3a'); sky.addColorStop(1, '#0a0a1a');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  // Stars
+  for (let i = 0; i < 30; i++) {
+    const sx = (i * 137.5) % W, sy = (i * 73.3) % (groundY - 40);
+    const brightness = 0.3 + 0.3 * Math.sin(frame * 0.05 + i);
+    ctx.fillStyle = `rgba(255,255,255,${brightness})`;
+    ctx.beginPath(); ctx.arc(sx, sy, 1, 0, Math.PI * 2); ctx.fill();
+  }
+  // Sun glow
+  const sun = ctx.createRadialGradient(W - 80, 60, 0, W - 80, 60, 60);
+  sun.addColorStop(0, 'rgba(255,200,100,.2)'); sun.addColorStop(1, 'rgba(255,200,100,0)');
+  ctx.fillStyle = sun; ctx.fillRect(0, 0, W, H);
+  // Clouds
+  clouds.forEach(c => { c.update(W); c.draw(ctx, frame); });
+  // Ground
+  ctx.fillStyle = '#0a1a0a'; ctx.fillRect(0, groundY, W, H - groundY);
+  ctx.strokeStyle = '#1a3a1a'; ctx.lineWidth = 2;
+  for (let i = 0; i < W; i += 20) {
+    ctx.beginPath(); ctx.moveTo(i, groundY); ctx.lineTo(i + 10, groundY + 2); ctx.stroke();
+  }
+  // Distance mountains
+  ctx.fillStyle = 'rgba(20,40,20,0.6)';
+  ctx.beginPath(); ctx.moveTo(0, groundY);
+  for (let i = 0; i <= W; i += 40) {
+    const mh = 20 + 15 * Math.sin(i * 0.03);
+    ctx.lineTo(i, groundY - mh);
+  }
+  ctx.lineTo(W, groundY); ctx.fill();
+  // Particles (behind player)
+  particles.forEach(p => p.draw(ctx));
+  // Player
+  player.draw(ctx, frame);
+  // Obstacles
+  obstacles.forEach(o => o.draw(ctx, frame));
+}
+
+function start() {
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('overlay').querySelector('h1').textContent = '🦖 跑酷小恐龙';
+  init(); loop();
+}
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+document.getElementById('overlay').style.display = 'flex'; init(); loop();
 </script></body></html>
