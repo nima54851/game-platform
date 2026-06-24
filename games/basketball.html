@@ -270,7 +270,5 @@ function loop() { update(); draw(); requestAnimationFrame(loop); }
 function start() {
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('overlay').querySelector('h1').textContent = '🏀 投篮大师';
-  init(); loop();
-}
-document.getElementById('overlay').style.display = 'flex'; init(); loop();
+document.getElementById('overlay').style.display = 'flex';
 </script></body></html>
