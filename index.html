@@ -434,26 +434,23 @@ body{font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text
 <script>
 // ── Data ──────────────────────────────────────────────────────
 const GAMES = [
-  // FREE
+  // 🆕 全新现代游戏
+  {id:'survivor',name:'🏴‍☠️ 深渊幸存者',emoji:'🏴‍☠️',bg:'linear-gradient(135deg,#0d0015,#1a0030)',cat:'all free',free:true,multi:false,tags:['弹幕','生存','射击'],desc:'WASD移动 · 鼠标瞄准 · 消灭怪物 · 生存越久分数越高 · Three.js 3D渲染'},
+  {id:'blob-io',name:'🫧 球球吞噬战',emoji:'🫧',bg:'linear-gradient(135deg,#0a0a2b,#1a1a4a)',cat:'all free',free:true,multi:false,tags:['IO','吞噬','竞技'],desc:'鼠标控制 · 吞噬小球球变大 · 躲避大球 · 活得越久分越高 · 霓虹宇宙风格'},
+  {id:'pinball',name:'🔮 霓虹弹珠台',emoji:'🔮',bg:'linear-gradient(135deg,#1a0a2b,#2d1a4a)',cat:'all free',free:true,multi:false,tags:['弹珠','街机','物理'],desc:'Z/斜杠控制挡板 · SPACE蓄力发射 · 连击倍率x8 · 赛博朋克霓虹视觉'},
+  {id:'fruitninja',name:'🍉 水果忍者',emoji:'🍉',bg:'linear-gradient(135deg,#1a2b0a,#2d4a1a)',cat:'all free',free:true,multi:false,tags:['切割','休闲','反应'],desc:'鼠标划过切割水果 · 躲开炸弹 · Combo连击 · 木板背景 · 粒子果汁特效'},
+  {id:'jewel',name:'💎 宝石消消乐',emoji:'💎',bg:'linear-gradient(135deg,#2b1a0a,#4a2d1a)',cat:'all free',free:true,multi:false,tags:['三消','益智','休闲'],desc:'点击交换宝石 · 三连消除 · 级联Combo · 弹跳动画 · 精美宝石质感'},
+  // 经典保留
   {id:'space-shooter',name:'🚀 太空生存战 3D',emoji:'🚀',bg:'linear-gradient(135deg,#000820,#0a1628)',cat:'all free',free:true,multi:false,tags:['3D','射击'],desc:'Three.js 3D渲染 · 真实光影 · 粒子特效 · WASD移动鼠标瞄准'},
+  {id:'tetris',name:'🧱 俄罗斯方块',emoji:'🧱',bg:'linear-gradient(135deg,#2b1a0d,#4a2d1a)',cat:'all free',free:true,multi:false,tags:['经典','消除'],desc:'消除方块拿高分，等级越高速度越快！'},
   {id:'2048',name:'🔢 2048 数字挑战',emoji:'🔢',bg:'linear-gradient(135deg,#1a0d2b,#2d1a4a)',cat:'all free',free:true,multi:false,tags:['益智','数字'],desc:'滑动合并，挑战2048！烧脑的逻辑游戏'},
   {id:'tictactoe',name:'⭕ 井字棋对战',emoji:'⭕',bg:'linear-gradient(135deg,#1a1a0d,#3a3a1a)',cat:'all free multi',free:true,multi:true,tags:['双人','对战'],desc:'和朋友对弈井字棋，看看谁是最后赢家'},
-  {id:'tetris',name:'🧱 俄罗斯方块',emoji:'🧱',bg:'linear-gradient(135deg,#2b1a0d,#4a2d1a)',cat:'all free',free:true,multi:false,tags:['经典','消除'],desc:'消除方块拿高分，等级越高速度越快！'},
-
-  // VIP
-  {id:'flappybird',name:'🐦 Flappy鸟',emoji:'🐦',bg:'linear-gradient(135deg,#0d2b2b,#1a4a4a)',cat:'all vip',free:false,multi:false,tags:['飞行','障碍'],desc:'穿越管道飞向天空，考验反应力的经典游戏'},
-  {id:'gomoku',name:'⚫ 五子棋大师',emoji:'⚫',bg:'linear-gradient(135deg,#1a0d0d,#2d1a1a)',cat:'all vip multi',free:false,multi:true,tags:['策略','对战'],desc:'和朋友来一局五子棋，先连成五子获胜'},
-  {id:'pingpong',name:'🏓 弹球对战',emoji:'🏓',bg:'linear-gradient(135deg,#1a0d1a,#2d1a3a)',cat:'all vip multi',free:false,multi:true,tags:['双打','竞技'],desc:'同屏双打！W/S控制左，↑↓控制右'},
-  {id:'minesweeper',name:'💣 扫雷专家',emoji:'💣',bg:'linear-gradient(135deg,#2b0d0d,#4a1a1a)',cat:'all vip',free:false,multi:false,tags:['逻辑','益智'],desc:'找出所有安全格子，避开地雷！'},
-  {id:'connect4',name:'🔴 四子棋',emoji:'🔴',bg:'linear-gradient(135deg,#1a0d0d,#2d1a1a)',cat:'all vip multi',free:false,multi:true,tags:['策略','对战'],desc:'四子连成一条线即可获胜，和朋友对决！'},
-  {id:'dino',name:'🦖 跑酷小恐龙',emoji:'🦖',bg:'linear-gradient(135deg,#0d1a0d,#1a3a1a)',cat:'all vip',free:false,multi:false,tags:['跑酷','障碍'],desc:'躲避仙人掌，无限跑酷，越跑越快！'},
-  {id:'bubble',name:'🫧 泡泡龙',emoji:'🫧',bg:'linear-gradient(135deg,#0d1a2b,#1a2d4a)',cat:'all vip',free:false,multi:false,tags:['消除','休闲'],desc:'同色泡泡三个以上即可消除，得高分'},
-  {id:'basketball',name:'🏀 投篮大师',emoji:'🏀',bg:'linear-gradient(135deg,#2b1a0d,#4a2d1a)',cat:'all vip',free:false,multi:false,tags:['技巧','投篮'],desc:'瞄准角度和力度，把球投进篮筐！'},
-  {id:'aimtrain',name:'🎯 瞄准训练',emoji:'🎯',bg:'linear-gradient(135deg,#1a2b0d,#2d4a1a)',cat:'all vip',free:false,multi:false,tags:['反应','射击'],desc:'训练反应速度和精准度，限时击靶！'},
-  {id:'sudoku',name:'🔢 数独大师',emoji:'🔢',bg:'linear-gradient(135deg,#0d1a2b,#1a2d4a)',cat:'all vip',free:false,multi:false,tags:['逻辑','益智'],desc:'填满数字1-9，每行每列每宫唯一'},
-  {id:'racing',name:'🏎️ 公路狂飙',emoji:'🏎️',bg:'linear-gradient(135deg,#2b0d1a,#4a1a2d)',cat:'all vip',free:false,multi:false,tags:['赛车','3D场景'],desc:'🌙夜→🌅黄昏→🌧️雨动态场景！躲避/护盾/氮气/清屏道具 · 炫酷粒子特效 · 多种障碍车'},
-  {id:'invaders',name:'👾 太空侵略者',emoji:'👾',bg:'linear-gradient(135deg,#0d0d2b,#1a1a4a)',cat:'all vip',free:false,multi:false,tags:['射击','经典'],desc:'经典街机射击，外星人来袭，守卫地球！'},
-  {id:'billiards',name:'🎱 台球大师',emoji:'🎱',bg:'linear-gradient(135deg,#0d1a0d,#1a3a1a)',cat:'all vip',free:false,multi:false,tags:['技巧','台球'],desc:'瞄准角度，白球进袋，模拟真实台球体验'},
+  {id:'billiards',name:'🎱 台球大师',emoji:'🎱',bg:'linear-gradient(135deg,#0d1a0d,#1a3a1a)',cat:'all free',free:true,multi:false,tags:['技巧','台球'],desc:'鼠标拖拽瞄准 · 松手击球 · 把彩球打进袋！'},
+  {id:'invaders',name:'👾 太空侵略者',emoji:'👾',bg:'linear-gradient(135deg,#0d0d2b,#1a1a4a)',cat:'all free',free:true,multi:false,tags:['射击','经典'],desc:'经典街机射击，外星人来袭，守卫地球！'},
+  {id:'flappybird',name:'🐦 Flappy鸟',emoji:'🐦',bg:'linear-gradient(135deg,#0d2b2b,#1a4a4a)',cat:'all free',free:true,multi:false,tags:['飞行','障碍'],desc:'穿越管道飞向天空，考验反应力的经典游戏'},
+  {id:'connect4',name:'🔴 四子棋',emoji:'🔴',bg:'linear-gradient(135deg,#1a0d0d,#2d1a1a)',cat:'all free multi',free:true,multi:true,tags:['策略','对战'],desc:'四子连成一条线即可获胜，和朋友对决！'},
+  {id:'gomoku',name:'⚫ 五子棋大师',emoji:'⚫',bg:'linear-gradient(135deg,#1a0d0d,#2d1a1a)',cat:'all free multi',free:true,multi:true,tags:['策略','对战'],desc:'和朋友来一局五子棋，先连成五子获胜'},
+  {id:'minesweeper',name:'💣 扫雷专家',emoji:'💣',bg:'linear-gradient(135deg,#2b0d0d,#4a1a1a)',cat:'all free',free:true,multi:false,tags:['逻辑','益智'],desc:'找出所有安全格子，避开地雷！'},
 ];
 
 // ── State ──────────────────────────────────────────────────────
