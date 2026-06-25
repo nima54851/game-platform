@@ -39,7 +39,7 @@ try {
 window.onerror = function(m,s,l){document.getElementById('err-box').textContent=m+' (line '+l+')';document.getElementById('err-box').style.display='block';return true;};
 
 (function(){
-var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js';
+var s=document.createElement('script');s.src='../assets/three.min.js';
 s.onload=init; s.onerror=function(){document.getElementById('err-box').textContent='Three.js加载失败，刷新重试';document.getElementById('err-box').style.display='block';};
 document.head.appendChild(s);
 })();
