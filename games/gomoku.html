@@ -16,7 +16,7 @@ canvas#c{border-radius:8px;box-shadow:0 0 30px rgba(0,0,0,0.5);position:relative
 .stone.black{background:radial-gradient(circle at 30% 30%,#555,#111)}
 .stone.white{background:radial-gradient(circle at 30% 30%,#fff,#ccc)}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+<script src="../assets/three.min.js"></script>
 </head><body>
 <div id="overlay">
   <h1>⚫ 五子棋</h1>
@@ -375,6 +375,7 @@ document.getElementById("start-btn").addEventListener("click", function() {
   document.getElementById("overlay").style.display = 'none';
   init();
 });
+init();
 draw();
 } catch(e) { console.error(e); }
 </script></body></html>
