@@ -23,7 +23,8 @@ canvas{border-radius:8px;display:block}
   <p>瞄准点击发射 · 同色3个以上泡泡消除</p>
   <button id="start-btn" onclick="start()">▶ 开始</button>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+
+<script src="../assets/three.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 //  THREE.JS SETUP
@@ -488,6 +489,7 @@ function start() {
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('overlay').querySelector('h1').textContent = '🫧 泡泡龙';
   init();
+  animate();
 }
 
 function animate() {
