@@ -23,7 +23,8 @@ canvas{display:block;border-radius:8px}
   <p>空格/上/W 跳跃 · 躲避障碍坚持越久</p>
   <button id="start-btn" onclick="start()">▶ 开始</button>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+
+<script src="../assets/three.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 //  THREE.JS SETUP
@@ -565,6 +566,7 @@ function start() {
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('overlay').querySelector('h1').textContent = '🦖 跑酷小恐龙';
   init();
+  animate();
 }
 
 function animate() {
