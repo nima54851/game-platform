@@ -87,6 +87,9 @@ body{
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
 }
 .nav-recharge:hover{transform:scale(1.05);box-shadow:0 4px 16px rgba(245,200,66,.4)}
+  .nav-coins-display{
+    font-size:13px;
+  }
   .nav-stats{
   display:flex;gap:20px;align-items:center;
   font-size:13px;color:var(--text3);
@@ -420,6 +423,10 @@ body{
     <span class="nav-logo-text">GameVault</span>
   </div>
   <a href="vip.html" class="nav-recharge" style="background:linear-gradient(135deg,#f5c842,#f59e0b);color:#000;font-size:13px;font-weight:700;padding:8px 18px;border-radius:10px;text-decoration:none;display:flex;align-items:center;gap:6px;">💰 充值</a>
+  <div class="nav-coins-display" id="navCoinsDisplay" style="display:none;align-items:center;gap:6px;background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.25);border-radius:10px;padding:7px 14px;font-size:13px;color:#f5c842;font-weight:700;">
+  💰 <span id="navCoins">0</span> 金币
+</div>
+<div class="nav-vip-badge" id="navVipBadge" style="display:none;background:linear-gradient(135deg,#f5c842,#f59e0b);color:#000;font-size:12px;font-weight:900;padding:6px 14px;border-radius:10px;">👑 VIP</div>
   <div class="nav-stats">
     <span>🎮 <b>23</b> 款游戏</span>
     <span>⭐ <b>4.8</b> 评分</span>
@@ -556,7 +563,8 @@ const GAMES = [
 
 // ─── State ─────────────────────────────────────────────────────
 let currentFilter = 'all';
-const IS_VIP = true; // set true to unlock all
+const updateCoinDisplay();
+  IS_VIP = true; // set true to unlock all
 
 // ─── Init ───────────────────────────────────────────────────────
 function init() { renderAll(); }
