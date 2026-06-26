@@ -422,6 +422,7 @@ body{
     <div class="nav-logo-icon">🎮</div>
     <span class="nav-logo-text">GameVault</span>
   </div>
+  <a href="login.html" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;font-size:13px;padding:8px 16px;border-radius:10px;text-decoration:none;display:flex;align-items:center;gap:6px;" id="navLoginBtn">👤 <span id="navUsername">登录</span></a>
   <a href="vip.html" class="nav-recharge" style="background:linear-gradient(135deg,#f5c842,#f59e0b);color:#000;font-size:13px;font-weight:700;padding:8px 18px;border-radius:10px;text-decoration:none;display:flex;align-items:center;gap:6px;">💰 充值</a>
   <div class="nav-coins-display" id="navCoinsDisplay" style="display:none;align-items:center;gap:6px;background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.25);border-radius:10px;padding:7px 14px;font-size:13px;color:#f5c842;font-weight:700;">
   💰 <span id="navCoins">0</span> 金币
@@ -563,7 +564,29 @@ const GAMES = [
 
 // ─── State ─────────────────────────────────────────────────────
 let currentFilter = 'all';
-const updateCoinDisplay();
+const function showWelcome() {
+  const params = new URLSearchParams(window.location.search);
+  const user = params.get('user');
+  const coins = params.get('coins');
+  if (user) {
+    const welcome = document.createElement('div');
+    welcome.id = 'welcome-toast';
+    welcome.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;padding:12px 28px;border-radius:12px;font-size:15px;font-weight:700;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.4);animation:slideDown .4s ease;';
+    welcome.innerHTML = '👋 欢迎回来，' + user + '！' + (coins ? ' 💰 金币：' + parseInt(coins).toLocaleString() : '');
+    document.body.appendChild(welcome);
+    setTimeout(() => { if (welcome.parentNode) welcome.remove(); }, 4000);
+    // Clean URL
+    history.replaceState(null, '', window.location.pathname);
+  }
+}
+function updateUsernameDisplay() {
+  const name = localStorage.getItem('gamevault_username');
+  const el = document.getElementById('navUsername');
+  if (el) el.textContent = name ? name.slice(0, 6) : '登录';
+}
+updateUsernameDisplay();
+showWelcome();
+updateCoinDisplay();
   IS_VIP = true; // set true to unlock all
 
 // ─── Init ───────────────────────────────────────────────────────
