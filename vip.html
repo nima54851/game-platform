@@ -325,7 +325,7 @@ function goPaypal() {
   // Convert CNY to approximate USD for PayPal
   const usd = (parseFloat(pendingPrice) * 0.14).toFixed(2);
   const returnUrl = 'https://gamevault-pay.your-username.workers.dev/return' + '?item=' + encodeURIComponent(pendingItem) + '&amt=' + pendingPrice + '&cm=' + encodeURIComponent(JSON.stringify({item:pendingItem,price:pendingPrice}));
-  const cancelUrl = window.location.href;
+  const cancelUrl = 'https://raspy-frost-19fb.huabaiwan54.workers.dev/cancel';
   const url = 'https://www.paypal.com/cgi-bin/webscr?cmd=_xclick' +
     '&business=' + encodeURIComponent(PAYPAL_BUSINESS) +
     '&item_name=' + encodeURIComponent('GameVault - ' + pendingPaypalName) +
@@ -338,18 +338,35 @@ function goPaypal() {
   window.location.href = url;
 }
 
-// Handle return from PayPal
+// ── Token helpers (same as worker) ──
+function signToken(data) {
+  const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+  return encoded + '.' + btoa(encoded.split('').reverse().join(''));
+}
+function verifyToken(token) {
+  try {
+    const [enc, sig] = token.split('.');
+    if (!enc || !sig) return null;
+    if (btoa(enc.split('').reverse().join('')) !== sig) return null;
+    return JSON.parse(decodeURIComponent(escape(atob(enc))));
+  } catch { return null; }
+}
+
+// ── Handle return from PayPal via Worker ──
 const params = new URLSearchParams(window.location.search);
 if (params.get('paid') === '1') {
-  const item = params.get('item') || '金币';
+  const rawToken = params.get('token') || '';
+  const tokenData = verifyToken(rawToken);
+  let item = params.get('item') || '金币';
+
+  // Extract item from token if available
+  if (tokenData && tokenData.item) item = tokenData.item;
+
   document.getElementById('success-banner').classList.add('show');
-  // Set VIP and coins in localStorage
   try {
-    // Unlock VIP
     const vipKey = 'gamevault_vip';
     const coinKey = 'gamevault_coins';
     let coins = parseInt(localStorage.getItem(coinKey) || '0');
-    // Add coins based on purchase
     const coinAmounts = {
       '500金币': 500,
       '2000金币': 2200,
@@ -361,11 +378,11 @@ if (params.get('paid') === '1') {
     coins += add;
     localStorage.setItem(coinKey, coins);
     localStorage.setItem(vipKey, 'true');
-  } catch(e) {}
-  // Auto-hide banner
+    updateCoinDisplay();
+  } catch(e) { console.error(e); }
   setTimeout(() => {
     document.getElementById('success-banner').classList.remove('show');
-  }, 5000);
+  }, 6000);
 }
 
 // Close modal on backdrop click
