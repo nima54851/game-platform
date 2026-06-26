@@ -3,7 +3,7 @@
 <title>🏀 投篮大师</title>
 <style>*{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a1a2a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;overflow:hidden}
-canvas{border-radius:8px;display:block}
+canvas{border-radius:8px;display:block;width:100%!important;height:auto!important}
 #hud{position:fixed;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:24px;z-index:10}
 .stat{background:rgba(0,0,0,.7);border:1px solid rgba(255,150,50,.2);padding:8px 20px;border-radius:8px;text-align:center}
 .stat .v{font-size:22px;font-weight:900;color:#ff8800;text-shadow:0 0 10px rgba(255,136,0,.6)}
@@ -150,7 +150,7 @@ class Hoop {
 // ============================================================
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-const W = Math.min(500, window.innerWidth - 20), H = Math.min(600, window.innerHeight - 40);
+const W = window.innerWidth, H = window.innerHeight;
 canvas.width = W; canvas.height = H;
 
 let ball, hoop, score, streak, made, total, power, aimAngle, charging, frame, particles;
@@ -271,5 +271,5 @@ function start() {
   document.getElementById('overlay').style.display = 'none';
   document.getElementById('overlay').querySelector('h1').textContent = '🏀 投篮大师';
 document.getElementById('overlay').style.display = 'flex';
-  init();
+  init(); loop();
 </script></body></html>
