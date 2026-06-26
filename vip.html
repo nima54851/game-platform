@@ -377,7 +377,18 @@ if (params.get('paid') === '1') {
     const add = coinAmounts[item] || 0;
     coins += add;
     localStorage.setItem(coinKey, coins);
-    localStorage.setItem(vipKey, 'true');
+    if (item === 'VIP永久会员') {
+      localStorage.setItem(vipKey, 'true');
+      // Record VIP transaction
+      const tx = JSON.parse(localStorage.getItem('gamevault_tx') || '[]');
+      tx.push({ type: 'vip', item: 'VIP永久会员', amount: 0, ts: Date.now() });
+      localStorage.setItem('gamevault_tx', JSON.stringify(tx));
+    } else if (add > 0) {
+      // Record coin transaction
+      const tx = JSON.parse(localStorage.getItem('gamevault_tx') || '[]');
+      tx.push({ type: 'recharge', item: item, amount: add, ts: Date.now() });
+      localStorage.setItem('gamevault_tx', JSON.stringify(tx));
+    }
     updateCoinDisplay();
   } catch(e) { console.error(e); }
   setTimeout(() => {
