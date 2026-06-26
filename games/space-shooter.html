@@ -1,984 +1,940 @@
 <!DOCTYPE html>
 <html lang="zh">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>✈️ 3D飞行轰炸</title>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚀 太空生存战</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{overflow:hidden;background:#000;font-family:'Courier New',monospace}
-canvas{display:block}
-#overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(6px)}
-#overlay h1{font-size:clamp(28px,7vw,52px);color:#ff6600;text-shadow:0 0 30px rgba(255,100,0,.9);margin-bottom:6px;letter-spacing:2px}
-#overlay p{color:rgba(255,255,255,.45);margin-bottom:28px;font-size:clamp(12px,2.5vw,15px);text-align:center;line-height:1.8}
-#start-btn{background:linear-gradient(135deg,#ff6600,#cc2200);color:#fff;padding:14px 52px;border:none;border-radius:14px;font-size:clamp(15px,4vw,20px);font-weight:900;cursor:pointer;font-family:'Courier New',monospace;box-shadow:0 0 40px rgba(255,80,0,.5),0 5px 0 #991100;transition:transform .1s}
-#start-btn:hover{transform:scale(1.05)}
-#hud{position:fixed;top:0;left:0;right:0;padding:10px 16px;display:flex;justify-content:center;gap:clamp(6px,2vw,18px);z-index:40;pointer-events:none;flex-wrap:wrap}
-.hd{background:rgba(0,0,0,.75);border:1px solid rgba(255,100,0,.25);padding:6px 14px;border-radius:8px;text-align:center;min-width:68px;backdrop-filter:blur(4px)}
-.hd .v{font-size:clamp(15px,3.5vw,22px);font-weight:900;color:#ff6600;text-shadow:0 0 10px rgba(255,100,0,.7)}
-.hd .l{font-size:9px;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:2px}
-#ctrl-hint{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.18);font-size:10px;pointer-events:none;z-index:40;letter-spacing:1px;white-space:nowrap}
-#err-box{color:#ff4444;font-size:12px;margin-top:12px;max-width:360px;text-align:center;display:none;padding:8px 14px;border:1px solid rgba(255,68,68,.3);border-radius:6px}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: 'Courier New', monospace; }
+
+  #game { border: 1px solid #1a1a3a; border-radius: 8px; box-shadow: 0 0 40px rgba(0,212,255,0.2); display: block; }
+
+  /* ── HUD Overlay ── */
+  #hud {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    display: flex; justify-content: center; align-items: center;
+  }
+
+  /* ── Shop Button ── */
+  #shop-btn {
+    position: fixed; bottom: 18px; right: 18px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff; border: none; border-radius: 12px;
+    padding: 10px 18px; font-size: 14px; font-family: 'Courier New', monospace;
+    cursor: pointer; pointer-events: all;
+    box-shadow: 0 4px 20px rgba(245,158,11,0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+    z-index: 10;
+  }
+  #shop-btn:hover { transform: scale(1.05); box-shadow: 0 6px 28px rgba(245,158,11,0.6); }
+
+  /* ── Modal Backdrop ── */
+  #modal {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100; justify-content: center; align-items: center;
+    backdrop-filter: blur(4px);
+  }
+  #modal.active { display: flex; }
+
+  .modal-box {
+    background: #0a0a1a;
+    border: 1px solid #2a2a5a;
+    border-radius: 16px;
+    padding: 28px;
+    width: min(460px, 95vw);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    position: relative;
+    color: #fff;
+  }
+
+  .modal-close {
+    position: absolute; top: 14px; right: 16px;
+    background: none; border: none; color: #555;
+    font-size: 22px; cursor: pointer; line-height: 1;
+    transition: color 0.2s;
+  }
+  .modal-close:hover { color: #fff; }
+
+  .modal-title {
+    font-size: 22px; font-weight: bold; margin-bottom: 6px;
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .modal-sub {
+    font-size: 13px; color: #888; margin-bottom: 20px;
+  }
+
+  /* ── Coin Balance ── */
+  .coin-balance {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 10px; padding: 10px 16px; margin-bottom: 20px;
+    font-size: 18px; font-weight: bold; color: #f59e0b;
+  }
+
+  /* ── Product Grid ── */
+  .product-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;
+  }
+
+  .product-card {
+    background: #11112a; border: 1px solid #2a2a5a;
+    border-radius: 12px; padding: 14px; text-align: center;
+    cursor: pointer; transition: border-color 0.2s, transform 0.15s;
+  }
+  .product-card:hover { border-color: #f59e0b; transform: translateY(-2px); }
+  .product-card.selected { border-color: #f59e0b; background: rgba(245,158,11,0.08); }
+
+  .product-icon { font-size: 28px; margin-bottom: 6px; }
+  .product-name { font-size: 13px; color: #ccc; margin-bottom: 4px; }
+  .product-coins { font-size: 15px; color: #f59e0b; font-weight: bold; }
+  .product-price { font-size: 12px; color: #666; margin-top: 3px; }
+  .product-tag {
+    display: inline-block; background: #ef4444; color: #fff;
+    font-size: 10px; border-radius: 4px; padding: 1px 6px;
+    margin-top: 4px;
+  }
+
+  /* ── Pay Button ── */
+  #pay-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 10px;
+    background: linear-gradient(135deg, #0070ba, #004c8f);
+    color: #fff; font-size: 16px; font-weight: bold;
+    cursor: pointer; font-family: 'Courier New', monospace;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(0,112,186,0.3);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  #pay-btn:hover { transform: scale(1.02); box-shadow: 0 6px 20px rgba(0,112,186,0.5); }
+  #pay-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .pay-note { font-size: 11px; color: #555; text-align: center; margin-top: 10px; }
+
+  /* ── Owned Items ── */
+  .owned-title { font-size: 13px; color: #888; margin-bottom: 10px; }
+  .owned-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .owned-item {
+    background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 8px; padding: 6px 12px; font-size: 12px; color: #10b981;
+  }
+
+  /* ── PayPal redirect notice ── */
+  #pay-notice {
+    display: none; margin-top: 14px;
+    background: rgba(0,112,186,0.15); border: 1px solid rgba(0,112,186,0.3);
+    border-radius: 8px; padding: 12px; font-size: 12px; color: #60a5fa;
+    text-align: center;
+  }
+  #pay-notice.show { display: block; }
+
+  /* ── Active Powerup HUD ── */
+  #active-items {
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; pointer-events: none; z-index: 5;
+  }
+  .active-badge {
+    background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.5);
+    border-radius: 20px; padding: 4px 12px; font-size: 12px; color: #10b981;
+  }
+  .active-badge.red { background: rgba(239,68,68,0.2); border-color: rgba(239,68,68,0.5); color: #ef4444; }
+  .active-badge.blue { background: rgba(59,130,246,0.2); border-color: rgba(59,130,246,0.5); color: #60a5fa; }
+
+  /* ── Notification Toast ── */
+  #toast {
+    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+    background: #11112a; border: 1px solid #f59e0b; color: #f59e0b;
+    padding: 10px 20px; border-radius: 10px; font-size: 14px;
+    display: none; z-index: 200; pointer-events: none;
+    animation: fadeUp 2.5s forwards;
+  }
+  #toast.show { display: block; }
+  @keyframes fadeUp {
+    0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    75% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ── Notification dot on shop btn ── */
+  #coin-badge {
+    position: fixed; bottom: 52px; right: 14px;
+    background: #f59e0b; color: #000; font-size: 10px; font-weight: bold;
+    border-radius: 10px; padding: 2px 6px; pointer-events: none; z-index: 11;
+    display: none;
+  }
+  #coin-badge.show { display: block; }
 </style>
 </head>
 <body>
-<div id="overlay">
-  <h1>✈️ 3D飞行轰炸</h1>
-  <p>WASD/方向键 移动飞机 &nbsp;·&nbsp; 空格/点击 射击<br>Z 投弹 &nbsp;·&nbsp; X 核弹（全屏）&nbsp;·&nbsp; P 暂停</p>
-  <button id="start-btn">▶ 起飞</button>
-  <div id="err-box"></div>
+
+<canvas id="game"></canvas>
+
+<!-- Active powerup badges -->
+<div id="active-items"></div>
+
+<!-- Coin badge -->
+<div id="coin-badge"></div>
+
+<!-- Shop Button -->
+<button id="shop-btn" onclick="openShop()">
+  🛒 商店 · 💰 <span id="shop-coins">0</span>
+</button>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Shop Modal -->
+<div id="modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeShop()">✕</button>
+    <div class="modal-title">🚀 太空商店</div>
+    <div class="modal-sub">用金币购买强力道具，助你称霸宇宙！</div>
+
+    <div class="coin-balance">
+      💰 当前金币: <span id="modal-coins">0</span>
+    </div>
+
+    <!-- Owned items -->
+    <div class="owned-title">已拥有的道具（购买后永久生效）</div>
+    <div class="owned-list" id="owned-list">
+      <span style="color:#444;font-size:12px;">还没有道具，快去购买吧！</span>
+    </div>
+
+    <!-- Products -->
+    <div class="product-grid">
+
+      <div class="product-card" data-id="shield" onclick="selectProduct('shield')">
+        <div class="product-icon">🛡️</div>
+        <div class="product-name">能量护盾</div>
+        <div class="product-coins">80 金币</div>
+        <div class="product-price">$0.99</div>
+        <div class="product-tag">必买</div>
+      </div>
+
+      <div class="product-card" data-id="rapid" onclick="selectProduct('rapid')">
+        <div class="product-icon">⚡</div>
+        <div class="product-name">极速射击</div>
+        <div class="product-coins">120 金币</div>
+        <div class="product-price">$1.49</div>
+        <div class="product-tag">热门</div>
+      </div>
+
+      <div class="product-card" data-id="pierce" onclick="selectProduct('pierce')">
+        <div class="product-icon">🔱</div>
+        <div class="product-name">穿透弹</div>
+        <div class="product-coins">160 金币</div>
+        <div class="product-price">$1.99</div>
+      </div>
+
+      <div class="product-card" data-id="nuke" onclick="selectProduct('nuke')">
+        <div class="product-icon">☢️</div>
+        <div class="product-name">核弹补给</div>
+        <div class="product-coins">200 金币</div>
+        <div class="product-price">$2.49</div>
+        <div class="product-tag">超值</div>
+      </div>
+
+      <div class="product-card" data-id="hp+2" onclick="selectProduct('hp+2')">
+        <div class="product-icon">❤️‍🔥</div>
+        <div class="product-name">生命+2</div>
+        <div class="product-coins">50 金币</div>
+        <div class="product-price">$0.59</div>
+      </div>
+
+      <div class="product-card" data-id="triple" onclick="selectProduct('triple')">
+        <div class="product-icon">🔱</div>
+        <div class="product-name">三联发</div>
+        <div class="product-coins">180 金币</div>
+        <div class="product-price">$2.29</div>
+      </div>
+
+    </div>
+
+    <!-- Selected info -->
+    <div id="pay-notice">
+      点击下方按钮后，将跳转 PayPal 完成支付 💳<br>
+      支付完成后，道具自动到账！请勿关闭页面。
+    </div>
+
+    <button id="pay-btn" onclick="doPay()" disabled>
+      <span>⬡</span> 选择道具后购买
+    </button>
+    <div class="pay-note">
+      💳 使用 PayPal 安全支付 · 收款: yinanzo@hotmail.com
+    </div>
+  </div>
 </div>
-<div id="hud">
-  <div class="hd"><div class="v" id="score">0</div><div class="l">得分</div></div>
-  <div class="hd"><div class="v" id="kills">0</div><div class="l">击落</div></div>
-  <div class="hd"><div class="v" id="wave">1</div><div class="l">波次</div></div>
-  <div class="hd"><div class="v" id="hp">100</div><div class="l">生命</div></div>
-  <div class="hd"><div class="v" id="bombs">5</div><div class="l">炸弹</div></div>
-</div>
-<div id="ctrl-hint">WASD 移动 · 空格 射击 · Z 投弹 · X 核弹 · P 暂停</div>
+
 <script>
-try {
-window.onerror = function(m,s,l){document.getElementById('err-box').textContent=m+' (line '+l+')';document.getElementById('err-box').style.display='block';return true;};
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+let coins = parseInt(localStorage.getItem('space_coins') || '0');
+let owned = JSON.parse(localStorage.getItem('space_owned') || '[]');
+let selectedProduct = null;
+let activeBuffs = { shield: 0, rapid: 0, pierce: 0, triple: 0, nuke: 0 };
 
-(function(){
-var s=document.createElement('script');s.src='../assets/three.min.js';
-s.onload=init; s.onerror=function(){document.getElementById('err-box').textContent='Three.js加载失败，刷新重试';document.getElementById('err-box').style.display='block';};
-document.head.appendChild(s);
-})();
+const PRODUCTS = {
+  shield:  { name: '能量护盾', cost: 80,  pay: '0.99', priceLabel: '$0.99', buff: 'shield' },
+  rapid:   { name: '极速射击', cost: 120, pay: '1.49', priceLabel: '$1.49', buff: 'rapid' },
+  pierce:  { name: '穿透弹',   cost: 160, pay: '1.99', priceLabel: '$1.99', buff: 'pierce' },
+  nuke:    { name: '核弹补给', cost: 200, pay: '2.49', priceLabel: '$2.49', buff: 'nuke' },
+  'hp+2':  { name: '生命+2',  cost: 50,  pay: '0.59', priceLabel: '$0.59', buff: 'hp+2' },
+  triple:  { name: '三联发',  cost: 180, pay: '2.29', priceLabel: '$2.29', buff: 'triple' },
+};
 
-var scene,camera,renderer,clock;
-var started=false,gameOver=false,paused=false;
-var score=0,kills=0,wave=1,frame=0;
-var bombs=5;
-var highScore=parseInt(localStorage.getItem('ss3d_hs')||'0');
-var playerGroup,cityGroup;
-var enemies=[],eBullets=[],pBullets=[],explosions=[];
-var buildings=[];
-var keys={};
-var playerHP=100,playerInvincible=0;
-var shootCD=0,bombCD=0;
-var cityBlocks=[];
-var fireParticles=[];
+// ═══════════════════════════════════════
+//  UI UPDATES
+// ═══════════════════════════════════════
+function updateCoinUI() {
+  document.getElementById('shop-coins').textContent = coins;
+  document.getElementById('modal-coins').textContent = coins;
+  const badge = document.getElementById('coin-badge');
+  if (coins > 0) {
+    badge.textContent = '💰' + coins;
+    badge.classList.add('show');
+  } else {
+    badge.classList.remove('show');
+  }
+  // Auto-activate owned buffs on game start
+  activateOwnedBuffs();
+}
 
-// ─── INIT ───
-function init(){
-  scene=new THREE.Scene();
-  scene.fog=new THREE.FogExp2(0x050515,0.008);
+function updateOwnedUI() {
+  const el = document.getElementById('owned-list');
+  if (owned.length === 0) {
+    el.innerHTML = '<span style="color:#444;font-size:12px;">还没有道具，快去购买吧！</span>';
+    return;
+  }
+  el.innerHTML = owned.map(id => {
+    const p = PRODUCTS[id];
+    const emoji = { shield:'🛡️', rapid:'⚡', pierce:'🔱', nuke:'☢️', 'hp+2':'❤️‍🔥', triple:'🔱' }[id];
+    return `<div class="owned-item">${emoji} ${p ? p.name : id}</div>`;
+  }).join('');
+}
 
-  camera=new THREE.PerspectiveCamera(65,innerWidth/innerHeight,0.1,500);
-  camera.position.set(0,8,18);
+function activateOwnedBuffs() {
+  if (state !== 'playing') return;
+  if (owned.includes('rapid'))   { shootCooldown = 4; }
+  if (owned.includes('triple'))  { multiShot = 3; }
+  if (owned.includes('pierce')) { bulletsCanPierce = true; }
+  if (owned.includes('nuke'))   { playerNukes += 3; }
+  if (owned.includes('shield')) { ship.shieldActive = true; }
+}
 
-  renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-  renderer.setSize(innerWidth,innerHeight);
-  renderer.shadowMap.enabled=true;
-  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  renderer.toneMapping=THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure=1.1;
-  document.body.insertBefore(renderer.domElement,document.getElementById('overlay'));
+function updateActiveBadges() {
+  const el = document.getElementById('active-items');
+  let html = '';
+  if (owned.includes('shield'))  html += '<div class="active-badge">🛡️ 护盾</div>';
+  if (owned.includes('rapid'))   html += '<div class="active-badge blue">⚡ 极速</div>';
+  if (owned.includes('pierce'))  html += '<div class="active-badge">🔱 穿透</div>';
+  if (owned.includes('triple'))  html += '<div class="active-badge blue">🔱 三联</div>';
+  if (owned.includes('nuke') && playerNukes > 0) html += `<div class="active-badge red">☢️ 核弹×${playerNukes}</div>`;
+  if (playerNukes > 0 && !owned.includes('nuke')) html += `<div class="active-badge red">☢️ 核弹×${playerNukes}</div>`;
+  el.innerHTML = html;
+}
 
-  clock=new THREE.Clock();
+// ═══════════════════════════════════════
+//  SHOP
+// ═══════════════════════════════════════
+function openShop() {
+  if (state === 'playing') state = 'paused';
+  document.getElementById('modal').classList.add('active');
+  selectedProduct = null;
+  document.querySelectorAll('.product-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('pay-btn').disabled = true;
+  document.getElementById('pay-btn').innerHTML = '<span>⬡</span> 选择道具后购买';
+  document.getElementById('pay-notice').classList.remove('show');
+  updateOwnedUI();
+}
 
-  // Night city lighting
-  scene.add(new THREE.AmbientLight(0x0a0a1a,0.8));
-  var moonLight=new THREE.DirectionalLight(0x8899cc,0.6);
-  moonLight.position.set(20,40,-30);
-  scene.add(moonLight);
-  var cityGlow=new THREE.PointLight(0xff4400,1.5,80);
-  cityGlow.position.set(0,2,-40);
-  scene.add(cityGlow);
+function closeShop() {
+  document.getElementById('modal').classList.remove('active');
+  if (state === 'paused') state = 'playing';
+}
 
-  cityGroup=new THREE.Group();
-  scene.add(cityGroup);
+function selectProduct(id) {
+  if (owned.includes(id)) {
+    showToast('✅ ' + PRODUCTS[id].name + ' 已拥有，无需重复购买！');
+    return;
+  }
+  selectedProduct = id;
+  document.querySelectorAll('.product-card').forEach(c => c.classList.remove('selected'));
+  document.querySelector(`[data-id="${id}"]`).classList.add('selected');
+  const p = PRODUCTS[id];
+  document.getElementById('pay-btn').disabled = false;
+  document.getElementById('pay-btn').innerHTML = `💳 购买 ${p.name} (${p.priceLabel})`;
+  document.getElementById('pay-notice').classList.add('show');
+}
 
-  buildSky();
-  buildGround();
-  buildCity();
-  buildPlayer();
+// ═══════════════════════════════════════
+//  PAY (PayPal)
+// ═══════════════════════════════════════
+function doPay() {
+  if (!selectedProduct) return;
+  const p = PRODUCTS[selectedProduct];
+  // PayPal Smart Buttons - redirect to PayPal
+  // Replace BUSINESS and ITEM_NAME with real values
+  const biz = 'yinanzo@hotmail.com';
+  const item = encodeURIComponent(p.name + ' - 太空生存战道具');
+  const amount = p.pay;
+  const custom = encodeURIComponent(JSON.stringify({ product: selectedProduct, game: 'space-shooter' }));
 
-  window.addEventListener('resize',onResize);
-  window.addEventListener('keydown',e=>{keys[e.code]=true;if(['Space'].includes(e.code))e.preventDefault();});
-  window.addEventListener('keyup',e=>{keys[e.code]=false;});
-  window.addEventListener('click',()=>{if(started&&!gameOver&&!paused) shoot();});
-  window.addEventListener('keydown',e=>{
-    if(e.code==='KeyP'&&started) paused=!paused;
-    if(started&&!gameOver&&!paused){
-      if(e.code==='Space'){e.preventDefault();shoot();}
-      if(e.code==='KeyZ') dropBomb();
-      if(e.code==='KeyX') fireNuke();
-    }
+  // Direct PayPal checkout URL
+  const paypalUrl = `https://www.paypal.com/cgi-bin/webscr?cmd=_xclick` +
+    `&business=${biz}` +
+    `&item_name=${item}` +
+    `&amount=${amount}` +
+    `&currency_code=USD` +
+    `&custom=${custom}` +
+    `&return=https://nima54851.github.io/lingxi-games/space-shooter.html?paid=1` +
+    `&cancel_return=https://nima54851.github.io/lingxi-games/space-shooter.html`;
+
+  // Also open in popup for better UX
+  const win = window.open(paypalUrl, 'paypal', 'width=600,height=700,scrollbars=yes');
+
+  // Poll for payment confirmation via localStorage (simulated for demo)
+  // In production, use PayPal IPN or webhook
+  const checkPayment = setInterval(() => {
+    try {
+      const confirmed = localStorage.getItem('paypal_confirmed_' + selectedProduct);
+      if (confirmed === '1') {
+        clearInterval(checkPayment);
+        localStorage.removeItem('paypal_confirmed_' + selectedProduct);
+        grantProduct(selectedProduct);
+        closeShop();
+        showToast('✅ 购买成功！' + p.name + ' 已到账！');
+        return;
+      }
+    } catch(e) {}
+  }, 1000);
+
+  // Auto-close check after 60s
+  setTimeout(() => { clearInterval(checkPayment); }, 60000);
+}
+
+// ═══════════════════════════════════════
+//  GRANT PRODUCT (called after payment confirmed)
+// ═══════════════════════════════════════
+function grantProduct(id) {
+  if (!owned.includes(id)) {
+    owned.push(id);
+    localStorage.setItem('space_owned', JSON.stringify(owned));
+    // Grant coins equivalent
+    const p = PRODUCTS[id];
+    coins += p.cost;
+    localStorage.setItem('space_coins', coins);
+    updateCoinUI();
+    updateOwnedUI();
+    // Apply buff if in game
+    activateOwnedBuffs();
+    updateActiveBadges();
+  }
+}
+
+// Demo: simulate payment for testing (remove in production)
+function demoGrant(id) {
+  grantProduct(id);
+  closeShop();
+  showToast('✅ 演示模式：' + PRODUCTS[id].name + ' 已到账！');
+}
+
+// ═══════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('show');
+  void t.offsetWidth; // reflow
+  t.classList.add('show');
+}
+
+// ═══════════════════════════════════════
+//  GAME ENGINE
+// ═══════════════════════════════════════
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const W = Math.min(window.innerWidth - 20, 900);
+const H = Math.min(window.innerHeight - 20, 640);
+canvas.width = W;
+canvas.height = H;
+
+let state = 'start';
+let score = 0;
+let highScore = parseInt(localStorage.getItem('space_shooter_hs') || '0');
+let frame = 0;
+let shootCooldown = 8;
+let multiShot = 1;
+let bulletsCanPierce = false;
+let playerNukes = parseInt(localStorage.getItem('space_nukes') || '0');
+let extraHp = parseInt(localStorage.getItem('space_extra_hp') || '0');
+
+const ship = { x: W * 0.15, y: H / 2, r: 16, vy: 0, hp: 3, invincible: 0, dead: false, shieldActive: false };
+
+let bullets = [], enemies = [], stars = [], explosions = [], powerups = [], particles = [];
+let keys = {}, touching = false, touchY = ship.y;
+
+document.addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'Space') e.preventDefault(); });
+document.addEventListener('keyup', e => keys[e.code] = false);
+canvas.addEventListener('touchstart', e => { touching = true; touchY = e.touches[0].clientY - canvas.getBoundingClientRect().top; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchmove', e => { touchY = e.touches[0].clientY - canvas.getBoundingClientRect().top; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchend', () => touching = false);
+canvas.addEventListener('mousedown', e => { touching = true; touchY = e.offsetY; });
+canvas.addEventListener('mouseup', () => touching = false);
+
+// Check URL for payment success
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('paid') === '1') {
+  // Payment return - simulate grant of last selected
+  setTimeout(() => showToast('✅ 支付完成！道具已到账！'), 1000);
+}
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+function initStars() {
+  stars = [];
+  for (let i = 0; i < 140; i++) {
+    stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 2 + 0.5, speed: Math.random() * 2 + 0.5, alpha: Math.random() * 0.8 + 0.2, twinkle: Math.random() * Math.PI * 2 });
+  }
+}
+initStars();
+
+function circleCollide(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y;
+  return Math.sqrt(dx*dx + dy*dy) < (a.r||4) + (b.r||4);
+}
+
+function spawnEnemy() {
+  const type = Math.random();
+  if (type < 0.45) {
+    enemies.push({ x: W+25, y: Math.random()*(H-60)+30, r: 18+Math.random()*16, vx: -(2+Math.random()*2), vy: (Math.random()-0.5)*1.5, rot: Math.random()*Math.PI*2, rotSpeed: (Math.random()-0.5)*0.05, type: 'asteroid', hp: 1 });
+  } else if (type < 0.78) {
+    enemies.push({ x: W+15, y: Math.random()*(H-60)+30, r: 12, vx: -(4+Math.random()*2), vy: (Math.random()-0.5)*2, rot: 0, rotSpeed: 0, type: 'asteroid', hp: 1, fast: true });
+  } else if (type < 0.92) {
+    enemies.push({ x: W+20, y: Math.random()*(H-60)+30, r: 20, vx: -(1.5+Math.random()), vy: 0, rot: 0, rotSpeed: 0, type: 'ufo', hp: 2, shootTimer: 0 });
+  } else {
+    // Boss (bigger enemy)
+    enemies.push({ x: W+40, y: Math.random()*(H-80)+40, r: 35, vx: -(1+Math.random()), vy: (Math.random()-0.5)*1, rot: 0, rotSpeed: 0, type: 'boss', hp: 6, shootTimer: 0 });
+  }
+}
+
+function spawnPowerup() {
+  const types = ['hp', 'bomb', 'coin'];
+  const t = types[Math.floor(Math.random() * types.length)];
+  powerups.push({ x: W+10, y: Math.random()*(H-80)+40, r: 12, vx: -2, type: t, timer: 0 });
+}
+
+function explode(x, y, color, count=15) {
+  for (let i=0; i<count; i++) {
+    const angle = Math.random()*Math.PI*2, speed = Math.random()*4+1;
+    particles.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, life: 1, decay: 0.02+Math.random()*0.03, r: Math.random()*4+1, color });
+  }
+}
+
+function boom(x, y) {
+  explosions.push({ x, y, r: 5, maxR: 60, alpha: 1 });
+  for (let i=0; i<30; i++) {
+    const angle = Math.random()*Math.PI*2, speed = Math.random()*8+2;
+    particles.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, life: 1, decay: 0.015+Math.random()*0.02, r: Math.random()*6+2, color: `hsl(${Math.random()*60+30},100%,60%)` });
+  }
+}
+
+function resetGame() {
+  ship.y=H/2; ship.vy=0;
+  ship.hp = 3 + extraHp;
+  if (owned.includes('hp+2')) ship.hp += 2;
+  ship.invincible=0; ship.dead=false;
+  bullets=[]; enemies=[]; explosions=[]; powerups=[]; particles=[];
+  score=0; frame=0;
+  shootCooldown = owned.includes('rapid') ? 4 : 8;
+  multiShot = owned.includes('triple') ? 3 : 1;
+  bulletsCanPierce = owned.includes('pierce');
+  ship.shieldActive = owned.includes('shield');
+  updateActiveBadges();
+}
+
+// ═══════════════════════════════════════
+//  DRAW FUNCTIONS
+// ═══════════════════════════════════════
+function drawStars() {
+  stars.forEach(s => {
+    s.twinkle += 0.02;
+    const a = s.alpha*(0.5+0.5*Math.sin(s.twinkle));
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.fill();
   });
-  document.getElementById('start-btn').addEventListener('click',startGame);
-
-  animate();
 }
 
-// ════════════════════════════════════
-//  SKY — Stars + Moon + Clouds
-// ════════════════════════════════════
-function buildSky(){
-  // Stars
-  var sg=new THREE.BufferGeometry();
-  var pos=[];
-  for(var i=0;i<4000;i++){
-    pos.push((Math.random()-0.5)*400,Math.random()*150+5,(Math.random()-0.5)*400);
-  }
-  sg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
-  scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:0.25,sizeAttenuation:true})));
+function drawShip(x, y, r, invincible) {
+  if (invincible>0 && Math.floor(frame/4)%2===0) return;
+  ctx.save(); ctx.translate(x, y);
 
-  // Moon
-  var mg=new THREE.SphereGeometry(5,24,24);
-  var mm=new THREE.MeshStandardMaterial({color:0xeeeebb,emissive:0xaaaa88,emissiveIntensity:0.4,roughness:0.9,metalness:0});
-  var moon=new THREE.Mesh(mg,mm);
-  moon.position.set(60,80,-150);
-  scene.add(moon);
-
-  // Moon halo
-  var hg=new THREE.SphereGeometry(8,16,16);
-  var hm=new THREE.MeshBasicMaterial({color:0xffeeaa,transparent:true,opacity:0.06});
-  scene.add(new THREE.Mesh(hg,hm)).position.copy(moon.position);
-
-  // Distant nebula clouds
-  for(var n=0;n<5;n++){
-    var ng=new THREE.PlaneGeometry(60+Math.random()*40,30+Math.random()*20);
-    var nm=new THREE.MeshBasicMaterial({color:n%2===0?0x220044:0x001133,transparent:true,opacity:0.15+Math.random()*0.1,side:THREE.DoubleSide});
-    var nc=new THREE.Mesh(ng,nm);
-    nc.position.set((Math.random()-0.5)*200,30+Math.random()*30,-100-Math.random()*80);
-    nc.rotation.x=-Math.PI*0.3;
-    scene.add(nc);
-  }
-}
-
-// ════════════════════════════════════
-//  GROUND — Street Grid
-// ════════════════════════════════════
-function buildGround(){
-  // Asphalt
-  var gg=new THREE.PlaneGeometry(300,500);
-  var gm=new THREE.MeshStandardMaterial({color:0x111116,roughness:1,metalness:0});
-  var ground=new THREE.Mesh(gg,gm);
-  ground.rotation.x=-Math.PI/2;
-  ground.position.y=-0.1;
-  ground.receiveShadow=true;
-  scene.add(ground);
-
-  // Road markings
-  for(var z=-200;z<20;z+=8){
-    var rg=new THREE.PlaneGeometry(0.3,4);
-    var rm=new THREE.MeshBasicMaterial({color:0xffcc00});
-    var road=new THREE.Mesh(rg,rm);
-    road.rotation.x=-Math.PI/2;
-    road.position.set(0,0.01,z);
-    scene.add(road);
+  // Shield glow
+  if (ship.shieldActive) {
+    ctx.beginPath(); ctx.arc(0, 0, r*1.6, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(59,130,246,0.4)'; ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(59,130,246,0.06)'; ctx.fill();
   }
 
-  // Sidewalks
-  for(var sx=-1;sx<=1;sx+=2){
-    var swg=new THREE.PlaneGeometry(4,500);
-    var swm=new THREE.MeshStandardMaterial({color:0x1a1a22,roughness:0.9});
-    var sw=new THREE.Mesh(swg,swm);
-    sw.rotation.x=-Math.PI/2;
-    sw.position.set(sx*22,0.05,0);
-    scene.add(sw);
+  const flameLen = 12+Math.random()*8;
+  const grad = ctx.createLinearGradient(-r, 0, -r-flameLen, 0);
+  grad.addColorStop(0,'rgba(255,150,0,0.9)'); grad.addColorStop(0.5,'rgba(255,80,0,0.6)'); grad.addColorStop(1,'rgba(255,50,0,0)');
+  ctx.beginPath(); ctx.moveTo(-r,-5); ctx.lineTo(-r-flameLen,0); ctx.lineTo(-r,5);
+  ctx.fillStyle=grad; ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(r,0); ctx.lineTo(-r*0.7,-r*0.7); ctx.lineTo(-r*0.3,0); ctx.lineTo(-r*0.7,r*0.7);
+  ctx.closePath();
+  const bodyGrad = ctx.createLinearGradient(-r,-r,r,r);
+  bodyGrad.addColorStop(0,'#00d4ff'); bodyGrad.addColorStop(1,'#0066aa');
+  ctx.fillStyle=bodyGrad; ctx.fill();
+  ctx.strokeStyle='rgba(0,212,255,0.5)'; ctx.lineWidth=1; ctx.stroke();
+
+  ctx.beginPath(); ctx.arc(r*0.2,0,r*0.25,0,Math.PI*2);
+  ctx.fillStyle='rgba(180,230,255,0.8)'; ctx.fill();
+  ctx.restore();
+}
+
+function drawAsteroid(e) {
+  ctx.save(); ctx.translate(e.x,e.y); ctx.rotate(e.rot);
+  ctx.beginPath();
+  const spikes=8;
+  for (let i=0; i<spikes*2; i++) {
+    const angle=(i/(spikes*2))*Math.PI*2;
+    const r2 = i%2===0 ? e.r : e.r*(0.7+(i*17%5)*0.06);
+    if(i===0) ctx.moveTo(Math.cos(angle)*r2,Math.sin(angle)*r2);
+    else ctx.lineTo(Math.cos(angle)*r2,Math.sin(angle)*r2);
   }
-}
-
-// ════════════════════════════════════
-//  BUILDING TYPES — 8种建筑造型
-// ════════════════════════════════════
-function rand(min,max){return min+Math.random()*(max-min);}
-function randInt(min,max){return Math.floor(rand(min,max+1));}
-function randColor(h1,h2){return new THREE.Color().setHSL(rand(h1,h2),rand(0.3,0.8),rand(0.05,0.15));}
-
-var BLDG_TYPES=[
-  // 0: 普通写字楼
-  function(x,z,w,d,h,c){
-    var g=new THREE.BoxGeometry(w,d,h);
-    var m=new THREE.MeshStandardMaterial({color:c,roughness:0.7,metalness:0.3});
-    var mesh=new THREE.Mesh(g,m);
-    mesh.position.set(x,h/2-0.1,z);
-    mesh.castShadow=true;mesh.receiveShadow=true;
-    addWindows(mesh,x,z,w,d,h,c,'office');
-    addRooftop(mesh,x,z,w,d,h,'antenna');
-    return mesh;
-  },
-  // 1: 玻璃幕墙大厦
-  function(x,z,w,d,h,c){
-    var g=new THREE.BoxGeometry(w,d,h);
-    var m=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(rand(0.55,0.65),0.6,0.12),roughness:0.1,metalness:0.9,envMapIntensity:1});
-    var mesh=new THREE.Mesh(g,m);
-    mesh.position.set(x,h/2-0.1,z);
-    mesh.castShadow=true;mesh.receiveShadow=true;
-    addGlassCurtain(mesh,x,z,w,d,h);
-    addRooftop(mesh,x,z,w,d,h,'hvac');
-    return mesh;
-  },
-  // 2: 金字塔顶建筑
-  function(x,z,w,d,h,c){
-    var g=new THREE.BoxGeometry(w,d,h*0.7);
-    var m=new THREE.MeshStandardMaterial({color:c,roughness:0.6,metalness:0.4});
-    var mesh=new THREE.Mesh(g,m);
-    mesh.position.set(x,h*0.35-0.1,z);
-    mesh.castShadow=true;mesh.receiveShadow=true;
-    // Pyramid top
-    var pg=new THREE.ConeGeometry(Math.min(w,d)*0.6,h*0.35,4);
-    var pm=new THREE.MeshStandardMaterial({color:c,roughness:0.5,metalness:0.5});
-    var pyramid=new THREE.Mesh(pg,pm);
-    pyramid.position.set(x,h*0.7+h*0.175-0.1,z);
-    pyramid.rotation.y=Math.PI/4;
-    pyramid.castShadow=true;
-    addWindows(mesh,x,z,w,d,h*0.7,c,'office');
-    return [mesh,pyramid];
-  },
-  // 3: 圆形塔
-  function(x,z,w,d,h,c){
-    var g=new THREE.CylinderGeometry(w/2,w/2,h,16);
-    var m=new THREE.MeshStandardMaterial({color:c,roughness:0.4,metalness:0.6});
-    var mesh=new THREE.Mesh(g,m);
-    mesh.position.set(x,h/2-0.1,z);
-    mesh.castShadow=true;mesh.receiveShadow=true;
-    // Circular windows
-    var wCount=Math.floor(h/4);
-    for(var i=0;i<wCount;i++){
-      for(var side=-1;side<=1;side+=2){
-        if(Math.random()>0.5){
-          var wg=new THREE.CircleGeometry(0.3,8);
-          var wm=new THREE.MeshBasicMaterial({color:Math.random()>0.5?0xffffaa:0x88ccff,side:THREE.DoubleSide});
-          var wm2=new THREE.Mesh(wg,wm);
-          wm2.position.set(x+side*(w/2+0.01),i*4+2,z);
-          wm2.rotation.y=side>0?0:Math.PI;
-          cityGroup.add(wm2);
-        }
-      }
-    }
-    addRooftop(mesh,x,z,w,d,h,'dome');
-    return mesh;
-  },
-  // 4: 阶梯式建筑
-  function(x,z,w,d,h,c){
-    var meshes=[];
-    var steps=randInt(2,3);
-    for(var s=0;s<steps;s++){
-      var sh=h*(steps-s)/steps;
-      var sw=w*(steps-s)/steps, sd=d*(steps-s)/steps;
-      var sg=new THREE.BoxGeometry(sw,sd,sh);
-      var sm=new THREE.MeshStandardMaterial({color:c.clone().offsetHSL(0,s*0.05, s*0.03),roughness:0.6,metalness:0.3});
-      var sm2=new THREE.Mesh(sg,sm);
-      sm2.position.set(x,sh/2+s*h/steps-0.1,z);
-      sm2.castShadow=true;sm2.receiveShadow=true;
-      cityGroup.add(sm2);
-      meshes.push(sm2);
-      if(s===steps-1) addWindows(sm2,x,z,sw,sd,sh,c,'office');
-    }
-    addRooftop(meshes[meshes.length-1],x,z,w,d,h,'garden');
-    return meshes;
-  },
-  // 5: 霓虹招牌商业楼
-  function(x,z,w,d,h,c){
-    var g=new THREE.BoxGeometry(w,d,h);
-    var m=new THREE.MeshStandardMaterial({color:0x111118,roughness:0.8,metalness:0.2});
-    var mesh=new THREE.Mesh(g,m);
-    mesh.position.set(x,h/2-0.1,z);
-    mesh.castShadow=true;mesh.receiveShadow=true;
-    addNeonSign(x,h,z,w);
-    addWindows(mesh,x,z,w,d,h,c,'neon');
-    addRooftop(mesh,x,z,w,d,h,'billboard');
-    return mesh;
-  },
-  // 6: 圆顶天文台/穹顶
-  function(x,z,w,d,h,c){
-    // Base box
-    var bg=new THREE.BoxGeometry(w,d,h*0.5);
-    var bm=new THREE.MeshStandardMaterial({color:c,roughness:0.7});
-    var base=new THREE.Mesh(bg,bm);
-    base.position.set(x,h*0.25-0.1,z);
-    base.castShadow=true;base.receiveShadow=true;
-    // Dome
-    var dg=new THREE.SphereGeometry(Math.min(w,d)*0.55,h*0.5,16,0,Math.PI*2,0,Math.PI*0.5);
-    var dm=new THREE.MeshStandardMaterial({color:0x223344,roughness:0.2,metalness:0.8,transparent:true,opacity:0.85});
-    var dome=new THREE.Mesh(dg,dm);
-    dome.position.set(x,h*0.5-0.1,z);
-    dome.castShadow=true;
-    cityGroup.add(base);cityGroup.add(dome);
-    return [base,dome];
-  },
-  // 7: 联排别墅
-  function(x,z,w,d,h,c){
-    var meshes=[];
-    var units=randInt(2,3);
-    for(var u=0;u<units;u++){
-      var ug=new THREE.BoxGeometry(w/units-0.3,d,h);
-      var um=new THREE.MeshStandardMaterial({color:c.clone().offsetHSL(u*0.03,0,0.05),roughness:0.8});
-      var unit=new THREE.Mesh(ug,um);
-      unit.position.set(x+(u-(units-1)/2)*(w/units),h/2-0.1,z);
-      unit.castShadow=true;unit.receiveShadow=true;
-      cityGroup.add(unit);meshes.push(unit);
-      // House windows
-      for(var wy=1;wy<h-1;wy+=2){
-        var wg2=new THREE.PlaneGeometry(0.6,0.8);
-        var wm2=new THREE.MeshBasicMaterial({color:0xffffaa,side:THREE.DoubleSide});
-        var w2=new THREE.Mesh(wg2,wm2);
-        w2.position.set(x+(u-(units-1)/2)*(w/units),wy,z+d/2+0.01);
-        cityGroup.add(w2);
-      }
-    }
-    return meshes;
+  ctx.closePath();
+  const grad = ctx.createRadialGradient(0,0,0,0,0,e.r);
+  if (e.type==='boss') {
+    grad.addColorStop(0,'#661111'); grad.addColorStop(1,'#220000');
+    ctx.fillStyle=grad; ctx.fill();
+    ctx.strokeStyle='#ff3333'; ctx.lineWidth=2; ctx.stroke();
+    // Boss HP bar
+    ctx.restore(); ctx.save(); ctx.translate(e.x,e.y);
+    ctx.fillStyle='#333'; ctx.fillRect(-e.r, -e.r-10, e.r*2, 5);
+    ctx.fillStyle='#ef4444'; ctx.fillRect(-e.r, -e.r-10, e.r*2*(e.hp/6), 5);
+    return;
   }
-];
-
-// ─── Window patterns ───
-function addWindows(mesh,x,z,w,d,h,c,type){
-  var winColors={office:[0xffffaa,0xffee88,0xffffff,0x88ccff],neon:[0xff44ff,0x00ffff,0xffaa00,0x00ff88],glass:[0x88ddff,0xaaddff,0xffffff,0x66bbff]};
-  var colors=winColors[type]||winColors.office;
-  var rows=Math.floor(h/2.5),cols=Math.floor(w/1.5);
-  for(var r=1;r<rows;r++){
-    for(var c2=0;c2<cols;c2++){
-      if(Math.random()>0.35){
-        var side=Math.random()>0.5?1:-1;
-        var wg=new THREE.PlaneGeometry(0.7,1.0);
-        var lit=Math.random()>0.3;
-        var wm=new THREE.MeshBasicMaterial({color:lit?colors[randInt(0,colors.length-1)]:0x0a1020,side:THREE.DoubleSide});
-        var wm2=new THREE.Mesh(wg,wm);
-        var lx=x-w/2+(c2+0.5)*(w/cols);
-        wm2.position.set(lx,r*2.5,z+side*(d/2+0.01));
-        wm2.rotation.y=side>0?0:Math.PI;
-        cityGroup.add(wm2);
-
-        // Back wall window
-        if(Math.random()>0.6){
-          var wm3=new THREE.Mesh(wg,wm.clone());
-          wm3.material.color.setHex(lit?colors[randInt(0,colors.length-1)]:0x0a1020);
-          wm3.position.set(lx,r*2.5,z-side*(d/2+0.01));
-          wm3.rotation.y=side>0?Math.PI:0;
-          cityGroup.add(wm3);
-        }
-      }
-    }
-  }
+  grad.addColorStop(0, e.fast?'#884400':'#555'); grad.addColorStop(1, e.fast?'#331100':'#222');
+  ctx.fillStyle=grad; ctx.fill();
+  ctx.strokeStyle=e.fast?'#ff6600':'#666'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.restore();
 }
 
-// ─── Glass curtain walls ───
-function addGlassCurtain(mesh,x,z,w,d,h){
-  var floors=Math.floor(h/3);
-  for(var f=0;f<floors;f++){
-    var fg=new THREE.PlaneGeometry(w-0.2,d-0.2);
-    var fm=new THREE.MeshBasicMaterial({color:new THREE.Color().setHSL(rand(0.55,0.65),0.5,rand(0.08,0.18)),transparent:true,opacity:rand(0.4,0.7),side:THREE.DoubleSide});
-    var fmesh=new THREE.Mesh(fg,fm);
-    fmesh.position.set(x,f*3+2,z+d/2+0.01);
-    cityGroup.add(fmesh);
-    var fmesh2=fmesh.clone();
-    fmesh2.position.z=z-d/2-0.01;fmesh2.rotation.y=Math.PI;
-    cityGroup.add(fmesh2);
-  }
+function drawUFO(e) {
+  ctx.save(); ctx.translate(e.x,e.y);
+  ctx.beginPath(); ctx.arc(0,-6,10,Math.PI,0); ctx.fillStyle='#aaaaff'; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0,0,20,8,0,0,Math.PI*2);
+  const g=ctx.createLinearGradient(-20,0,20,0);
+  g.addColorStop(0,'#333'); g.addColorStop(0.5,'#888'); g.addColorStop(1,'#333');
+  ctx.fillStyle=g; ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0,6,12,4,0,0,Math.PI*2);
+  ctx.fillStyle=`rgba(168,85,247,${0.5+0.5*Math.sin(frame*0.1)})`; ctx.fill();
+  ctx.restore();
 }
 
-// ─── Rooftop details ───
-function addRooftop(mesh,x,z,w,d,h,type){
-  if(type==='antenna'){
-    var ag=new THREE.CylinderGeometry(0.05,0.1,3,6);
-    var am=new THREE.MeshStandardMaterial({color:0x666666,roughness:0.5,metalness:0.8});
-    var ant=new THREE.Mesh(ag,am);
-    ant.position.set(x+rand(-w*0.2,w*0.2),h+1.5,z+rand(-d*0.2,d*0.2));
-    cityGroup.add(ant);
-    // Blinking light
-    var lg=new THREE.SphereGeometry(0.1,6,6);
-    var lm=new THREE.MeshBasicMaterial({color:0xff0000});
-    var light=new THREE.Mesh(lg,lm);
-    light.position.set(ant.position.x,h+3.2,ant.position.z);
-    light.userData.blink=true;
-    light.userData.blinkRate=rand(0.8,1.5);
-    cityGroup.add(light);
-  } else if(type==='hvac'){
-    for(var i=0;i<randInt(1,3);i++){
-      var hg=new THREE.BoxGeometry(rand(1,2),rand(0.5,1.5),rand(1,2));
-      var hm=new THREE.MeshStandardMaterial({color:0x444444,roughness:0.9});
-      var unit=new THREE.Mesh(hg,hm);
-      unit.position.set(x+rand(-w*0.3,w*0.3),h+unit.geometry.parameters.height/2,z+rand(-d*0.3,d*0.3));
-      cityGroup.add(unit);
-    }
-  } else if(type==='billboard'){
-    var bg=new THREE.BoxGeometry(w*0.8,1.5,0.15);
-    var bm=new THREE.MeshStandardMaterial({color:0x220000,roughness:0.8});
-    var board=new THREE.Mesh(bg,bm);
-    board.position.set(x,h*0.7,z+d/2+0.5);
-    cityGroup.add(board);
-    var sg=new THREE.PlaneGeometry(w*0.7,1.2);
-    var sm=new THREE.MeshBasicMaterial({color:new THREE.Color().setHSL(rand(0,1),1,0.4),side:THREE.DoubleSide});
-    var screen=new THREE.Mesh(sg,sm);
-    screen.position.set(x,h*0.7,z+d/2+0.58);
-    cityGroup.add(screen);
-  } else if(type==='dome'){
-    var dg=new THREE.SphereGeometry(0.6,12,12,0,Math.PI*2,0,Math.PI*0.5);
-    var dm2=new THREE.MeshStandardMaterial({color:0x334455,roughness:0.2,metalness:0.9});
-    var smallDome=new THREE.Mesh(dg,dm2);
-    smallDome.position.set(x,h,z);
-    cityGroup.add(smallDome);
-  } else if(type==='garden'){
-    for(var i=0;i<randInt(2,5);i++){
-      var tg=new THREE.ConeGeometry(0.4,1.2,6);
-      var tm=new THREE.MeshStandardMaterial({color:0x0a2a0a,roughness:1});
-      var tree=new THREE.Mesh(tg,tm);
-      tree.position.set(x+rand(-w*0.3,w*0.3),h+0.6,z+rand(-d*0.3,d*0.3));
-      cityGroup.add(tree);
-    }
-  }
+function drawPowerup(p) {
+  ctx.save(); ctx.translate(p.x,p.y);
+  const glow=0.7+0.3*Math.sin(frame*0.1);
+  ctx.beginPath(); ctx.arc(0,0,p.r,0,Math.PI*2);
+  if(p.type==='hp') { ctx.fillStyle=`rgba(16,185,129,${glow})`; ctx.strokeStyle='#10b981'; }
+  else if(p.type==='coin') { ctx.fillStyle=`rgba(245,158,11,${glow})`; ctx.strokeStyle='#f59e0b'; }
+  else { ctx.fillStyle=`rgba(245,158,11,${glow})`; ctx.strokeStyle='#f59e0b'; }
+  ctx.lineWidth=2; ctx.fill(); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font=`bold ${p.r*1.2}px monospace`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  if(p.type==='hp') ctx.fillText('+',0,1);
+  else if(p.type==='coin') ctx.fillText('💰',0,1);
+  else ctx.fillText('💥',0,1);
+  ctx.restore();
 }
 
-// ─── Neon sign ───
-function addNeonSign(x,h,z,w){
-  var neonColors=[0xff00ff,0x00ffff,0xffaa00,0xff4400,0x00ff88];
-  var nc=neonColors[randInt(0,neonColors.length-1)];
-  var sg=new THREE.BoxGeometry(rand(2,4),0.4,0.1);
-  var sm=new THREE.MeshBasicMaterial({color:nc});
-  var sign=new THREE.Mesh(sg,sm);
-  sign.position.set(x+rand(-w*0.3,w*0.3),h*0.7,z+0.5);
-  cityGroup.add(sign);
-  // Glow
-  var gg=new THREE.PointLight(nc,2,8);
-  gg.position.copy(sign.position);
-  cityGroup.add(gg);
+function drawParticles() {
+  particles.forEach(p => { ctx.globalAlpha=p.life; ctx.beginPath(); ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2); ctx.fillStyle=p.color; ctx.fill(); });
+  ctx.globalAlpha=1;
 }
 
-// ════════════════════════════════════
-//  CITY GENERATION
-// ════════════════════════════════════
-function buildCity(){
-  // City blocks: left and right side of road
-  var sides=[-25,-12,12,25];
-  for(var sideIdx=0;sideIdx<sides.length;sideIdx++){
-    var sx=sides[sideIdx];
-    for(var z=-200;z<20;z+=randInt(8,14)){
-      // Skip some slots for streets/intersections
-      if(Math.random()>0.75) continue;
-
-      var typeIdx=randInt(0,BLDG_TYPES.length-1);
-      var h=rand(6,25);
-      if(typeIdx===2) h=rand(15,35);
-      if(typeIdx===5) h=rand(5,12);
-      var w=rand(5,12), d=rand(5,10);
-      var c=randColor(0,1);
-
-      var objs=BLDG_TYPES[typeIdx](sx+rand(-3,3),z+rand(-3,3),w,d,h,c);
-      if(objs instanceof Array){
-        objs.forEach(function(o){cityGroup.add(o);});
-      } else {
-        cityGroup.add(objs);
-      }
-      buildings.push({x:sx,z:z,w:w,d:d,h:h,hp:typeIdx===5?1:3,type:typeIdx});
-    }
-  }
-
-  // Street lamps
-  for(var lz=-180;lz<20;lz+=15){
-    for(var lx=-22;lx<=22;lx+=44){
-      buildLamp(lx,lz);
-    }
-  }
-}
-
-function buildLamp(x,z){
-  var poleMat=new THREE.MeshStandardMaterial({color:0x333333,metalness:0.8,roughness:0.3});
-  var pole=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.1,5,6),poleMat);
-  pole.position.set(x,2.5,z);
-  cityGroup.add(pole);
-  var arm=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.1,0.1),poleMat);
-  arm.position.set(x+(x>0?-0.75:0.75),5,z);
-  cityGroup.add(arm);
-  var bulb=new THREE.Mesh(new THREE.SphereGeometry(0.15,8,8),new THREE.MeshBasicMaterial({color:0xffdd88}));
-  bulb.position.set(x+(x>0?-1.5:1.5),5,z);
-  cityGroup.add(bulb);
-  var glow=new THREE.PointLight(0xffdd88,0.5,10);
-  glow.position.copy(bulb.position);
-  cityGroup.add(glow);
-}
-
-// ════════════════════════════════════
-//  PLAYER — Fighter Jet
-// ════════════════════════════════════
-function buildPlayer(){
-  playerGroup=new THREE.Group();
-
-  // Fuselage
-  var fuse=new THREE.Mesh(
-    new THREE.CylinderGeometry(0.4,0.9,5.5,8),
-    new THREE.MeshStandardMaterial({color:0x2a3f66,metalness:0.7,roughness:0.3})
-  );
-  fuse.rotation.x=Math.PI/2;
-  playerGroup.add(fuse);
-
-  // Nose
-  var nose=new THREE.Mesh(
-    new THREE.ConeGeometry(0.4,1.5,8),
-    new THREE.MeshStandardMaterial({color:0x1a2a44,metalness:0.8,roughness:0.2})
-  );
-  nose.rotation.x=-Math.PI/2;
-  nose.position.z=-3.5;
-  playerGroup.add(nose);
-
-  // Wings
-  var wing=new THREE.Mesh(
-    new THREE.BoxGeometry(7.5,0.15,2.2),
-    new THREE.MeshStandardMaterial({color:0x1e3366,metalness:0.6,roughness:0.4})
-  );
-  wing.position.z=0.5;
-  playerGroup.add(wing);
-
-  // Wing tips — missiles
-  var misGeo=new THREE.BoxGeometry(1.2,0.2,0.25);
-  var misMat=new THREE.MeshStandardMaterial({color:0x445566,metalness:0.9,roughness:0.2});
-  var misL=new THREE.Mesh(misGeo,misMat);
-  misL.position.set(-3.8,0,0.5);
-  playerGroup.add(misL);
-  var misR=misL.clone();
-  misR.position.x=3.8;
-  playerGroup.add(misR);
-
-  // Tail fin
-  var tail=new THREE.Mesh(
-    new THREE.BoxGeometry(0.15,1.5,1.2),
-    new THREE.MeshStandardMaterial({color:0x1e3366,metalness:0.6,roughness:0.4})
-  );
-  tail.position.set(0,0.75,2.8);
-  playerGroup.add(tail);
-
-  // Horizontal stabilizers
-  var hstab=new THREE.Mesh(
-    new THREE.BoxGeometry(2.5,0.12,0.8),
-    new THREE.MeshStandardMaterial({color:0x1e3366,metalness:0.6,roughness:0.4})
-  );
-  hstab.position.set(0,0,2.8);
-  playerGroup.add(hstab);
-
-  // Engines
-  for(var side=-1;side<=1;side+=2){
-    var eng=new THREE.Mesh(
-      new THREE.CylinderGeometry(0.35,0.25,1.2,8),
-      new THREE.MeshStandardMaterial({color:0x1a1a22,metalness:0.8,roughness:0.3})
-    );
-    eng.rotation.x=Math.PI/2;
-    eng.position.set(side*0.8,0,2.8);
-    playerGroup.add(eng);
-    // Afterburner glow
-    var abGeo=new THREE.CylinderGeometry(0.3,0.15,0.4,8);
-    var abMat=new THREE.MeshBasicMaterial({color:0xff6600,transparent:true,opacity:0.7});
-    var ab=new THREE.Mesh(abGeo,abMat);
-    ab.rotation.x=Math.PI/2;
-    ab.position.set(side*0.8,0,3.6);
-    ab.name='ab_'+side;
-    playerGroup.add(ab);
-    var abLight=new THREE.PointLight(0xff6600,2,6);
-    abLight.position.set(side*0.8,0,3.8);
-    abLight.name='abLight_'+side;
-    playerGroup.add(abLight);
-  }
-
-  // Cockpit glass
-  var cpGeo=new THREE.SphereGeometry(0.38,10,10,0,Math.PI*2,0,Math.PI*0.5);
-  var cpMat=new THREE.MeshStandardMaterial({color:0x88ccff,metalness:0.9,roughness:0.05,transparent:true,opacity:0.65});
-  var cp=new THREE.Mesh(cpGeo,cpMat);
-  cp.position.set(0,0.38,-0.8);
-  playerGroup.add(cp);
-
-  // Gun barrels
-  for(var g=-1;g<=1;g+=2){
-    var gun=new THREE.Mesh(
-      new THREE.CylinderGeometry(0.06,0.06,1.5,6),
-      new THREE.MeshStandardMaterial({color:0x222222,metalness:0.9,roughness:0.1})
-    );
-    gun.rotation.x=Math.PI/2;
-    gun.position.set(g*0.4,0,-3.5);
-    playerGroup.add(gun);
-  }
-
-  // Player point light
-  var pLight=new THREE.PointLight(0x4488ff,1.5,15);
-  playerGroup.add(pLight);
-
-  playerGroup.position.set(0,8,18);
-  scene.add(playerGroup);
-}
-
-// ════════════════════════════════════
-//  GAME LOGIC
-// ════════════════════════════════════
-function startGame(){
-  document.getElementById('overlay').style.display='none';
-  started=true;gameOver=false;paused=false;
-  score=0;kills=0;wave=1;bombs=5;playerHP=100;
-  enemies=[];eBullets=[];pBullets=[];explosions=[];fireParticles=[];
-  buildings=[];
-  playerInvincible=0;
-  // Rebuild city
-  while(cityGroup.children.length>0){cityGroup.remove(cityGroup.children[0]);}
-  buildCity();
-  updateHUD();
-}
-
-function spawnEnemy(){
-  var types=[
-    {c:0x00ccff,spd:0.18,hp:2,sc:100,rate:70},
-    {c:0xffcc00,spd:0.14,hp:3,sc:200,rate:55},
-    {c:0xff4444,spd:0.11,hp:5,sc:300,rate:40}
-  ];
-  var t=types[randInt(0,2)];
-  t.hp+=Math.floor(wave*0.3);
-
-  var g=new THREE.Group();
-  // Body
-  var body=new THREE.Mesh(
-    new THREE.ConeGeometry(0.9,3.5,8),
-    new THREE.MeshStandardMaterial({color:t.c,metalness:0.7,roughness:0.3})
-  );
-  body.rotation.x=Math.PI/2;
-  g.add(body);
-  // Wings
-  var ew=new THREE.Mesh(
-    new THREE.BoxGeometry(5,0.12,1.4),
-    new THREE.MeshStandardMaterial({color:t.c,metalness:0.6,roughness:0.4})
-  );
-  ew.position.z=0.5;
-  g.add(ew);
-  // Engine glow
-  var eg=new THREE.Mesh(
-    new THREE.CylinderGeometry(0.4,0.2,0.4,8),
-    new THREE.MeshBasicMaterial({color:0xff4400,transparent:true,opacity:0.7})
-  );
-  eg.rotation.x=Math.PI/2;eg.position.z=2;
-  g.add(eg);
-
-  g.position.set(rand(-30,30),rand(3,12),-50-rand(0,30));
-  g.userData={hp:t.hp,maxHp:t.hp,spd:t.spd,sc:t.sc,shootCD:0,shootRate:Math.max(25,t.rate-wave*3),wobble:Math.random()*Math.PI*2};
-  scene.add(g);
-  enemies.push(g);
-}
-
-function shoot(){
-  if(shootCD>0)return;
-  shootCD=12;
-  for(var side=-1;side<=1;side+=2){
-    var b=new THREE.Mesh(
-      new THREE.CylinderGeometry(0.08,0.08,2,6),
-      new THREE.MeshBasicMaterial({color:0x00ffff})
-    );
-    b.rotation.x=Math.PI/2;
-    b.position.copy(playerGroup.position);
-    b.position.x+=side*0.5;b.position.z-=2;
-    b.userData={vz:-1.5,life:80};
-    scene.add(b);pBullets.push(b);
-  }
-  // Muzzle flash
-  flashLight(0x00ffff,0.3);
-}
-
-function dropBomb(){
-  if(bombCD>0||bombs<=0)return;
-  bombCD=30;bombs--;
-  var b=new THREE.Mesh(
-    new THREE.SphereGeometry(0.4,8,8),
-    new THREE.MeshStandardMaterial({color:0x222222,metalness:0.8,roughness:0.2})
-  );
-  b.position.copy(playerGroup.position);b.position.y-=0.5;
-  b.userData={vy:0,life:200,isBomb:true};
-  scene.add(b);pBullets.push(b);
-}
-
-function fireNuke(){
-  // Screen flash
-  flashLight(0xff2200,2);
-  explosions.push({pos:playerGroup.position.clone(),r:0,maxR:50,age:0,maxAge:50,isNuke:true});
-  enemies.forEach(function(e){score+=e.userData.sc;kills++;explodeAt(e.position.x,e.position.z,0xff4400,30);scene.remove(e);});
-  enemies=[];
-  buildings.forEach(function(b){
-    if(Math.random()>0.4){score+=20;destroyBuilding(b);}
+function drawExplosions() {
+  explosions.forEach(e => {
+    ctx.beginPath(); ctx.arc(e.x,e.y,e.r,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(255,150,50,${e.alpha})`; ctx.lineWidth=2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(e.x,e.y,e.r*0.6,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,255,200,${e.alpha*0.5})`; ctx.fill();
   });
-  updateHUD();
 }
 
-function flashLight(color,dur){
-  var fl=new THREE.PointLight(color,3,dur*2);
-  fl.position.copy(playerGroup.position);
-  scene.add(fl);
-  setTimeout(function(){scene.remove(fl);},dur*16);
-}
-
-function explodeAt(x,z,color,count){
-  for(var i=0;i<count;i++){
-    var a=Math.random()*Math.PI*2;
-    var sp=rand(0.1,0.5);
-    var p=new THREE.Mesh(
-      new THREE.SphereGeometry(rand(0.1,0.4),6,6),
-      new THREE.MeshBasicMaterial({color:color,transparent:true,opacity:1})
-    );
-    p.position.set(x,playerGroup.position.y-1,z);
-    p.userData={vx:Math.cos(a)*sp,vy:rand(0.05,0.3),vz:Math.sin(a)*sp,life:40,decay:rand(0.02,0.04),color:color};
-    scene.add(p);explosions.push({pts:[p],vel:null,age:0,maxAge:40,isNuke:false,single:true});
+function drawHUD() {
+  // HP
+  for (let i=0; i<ship.hp+extraHp+(owned.includes('hp+2')?2:0); i++) {
+    ctx.fillStyle = i<ship.hp ? '#10b981' : '#333';
+    ctx.font='20px monospace'; ctx.fillText('❤️', 10+i*28, 30);
   }
-  // Fire light
-  var el=new THREE.PointLight(color,3,20);
-  el.position.set(x,playerGroup.position.y,z);
-  scene.add(el);
-  setTimeout(function(){scene.remove(el);},600);
+  // Shield indicator
+  if (ship.shieldActive) {
+    ctx.fillStyle='#3b82f6'; ctx.font='14px monospace';
+    ctx.fillText('🛡️', 10+(ship.hp+extraHp+2)*28, 30);
+  }
+  // Score
+  ctx.fillStyle='#00d4ff'; ctx.font='bold 20px monospace'; ctx.textAlign='right';
+  ctx.fillText(`分数: ${score}`, W-10, 30);
+  ctx.fillStyle='#f59e0b'; ctx.font='13px monospace';
+  ctx.fillText(`最高: ${highScore}`, W-10, 50);
+  // Nukes
+  if (playerNukes>0) {
+    ctx.fillStyle='#ef4444'; ctx.font='13px monospace';
+    ctx.fillText(`☢️ ×${playerNukes}`, W-10, 70);
+  }
+  ctx.textAlign='left';
 }
 
-function destroyBuilding(b){
-  var x=b.x,z=b.z;
-  // Remove from scene
-  cityGroup.children.slice().forEach(function(child){
-    if(child.position.x===undefined)return;
-    var dx=child.position.x-x, dz=child.position.z-z;
-    if(Math.abs(dx)<b.w && Math.abs(dz)<b.d){
-      cityGroup.remove(child);
-    }
-  });
-  // Rubble
-  for(var i=0;i<12;i++){
-    var r=new THREE.Mesh(
-      new THREE.BoxGeometry(rand(0.3,1.5),rand(0.3,1.5),rand(0.3,1.5)),
-      new THREE.MeshStandardMaterial({color:0x333333,roughness:1})
-    );
-    r.position.set(x+rand(-b.w/2,b.w/2),0,z+rand(-b.d/2,b.d/2));
-    r.rotation.set(Math.random(),Math.random(),Math.random());
-    r.userData={falling:true,vy:-rand(0.05,0.15),rx:rand(-0.1,0.1),ry:rand(-0.05,0.05),life:120};
-    cityGroup.add(r);explosions.push({pts:[r],vel:null,age:0,maxAge:120,isNuke:false,single:true,isRubble:true});
+function drawStart() {
+  ctx.textAlign='center';
+  ctx.font=`bold ${Math.min(56,W*0.07)}px monospace`;
+  ctx.fillStyle='#00d4ff'; ctx.fillText('🚀', W/2, H*0.25);
+  ctx.font=`bold ${Math.min(42,W*0.06)}px monospace`;
+  const g=ctx.createLinearGradient(W*0.2,0,W*0.8,0);
+  g.addColorStop(0,'#00d4ff'); g.addColorStop(1,'#a855f7');
+  ctx.fillStyle=g; ctx.fillText('太空生存战', W/2, H*0.25+56);
+
+  ctx.font='14px monospace'; ctx.fillStyle='#555';
+  ctx.fillText('← → 或 ↑ ↓ 控制飞船，空格/W 发射', W/2, H*0.52);
+  ctx.fillText('躲避陨石 · 击毁敌人 · 收集能量', W/2, H*0.52+22);
+
+  // Owned buffs summary
+  if (owned.length>0) {
+    ctx.font='12px monospace'; ctx.fillStyle='#f59e0b';
+    const names = owned.map(id => PRODUCTS[id] ? PRODUCTS[id].name : id).join(' · ');
+    ctx.fillText('已拥有: '+names, W/2, H*0.62);
   }
-  // Smoke
-  for(var j=0;j<5;j++){
-    var s=new THREE.Mesh(
-      new THREE.SphereGeometry(rand(0.5,1.5),6,6),
-      new THREE.MeshBasicMaterial({color:0x444444,transparent:true,opacity:0.6})
-    );
-    s.position.set(x+rand(-1,1),rand(2,5),z+rand(-1,1));
-    s.userData={vy:rand(0.02,0.06),life:120,decay:rand(0.01,0.02),isSmoke:true};
-    cityGroup.add(s);explosions.push({pts:[s],vel:null,age:0,maxAge:120,isNuke:false,single:true,isSmoke:true});
+
+  ctx.fillStyle='#f59e0b'; ctx.font='14px monospace';
+  ctx.fillText(`最高分: ${highScore}`, W/2, H*0.7);
+
+  if (Math.floor(frame/30)%2===0) {
+    ctx.fillStyle='#fff'; ctx.font='bold 20px monospace';
+    ctx.fillText('▶ 按任意键开始', W/2, H*0.8);
   }
+  ctx.textAlign='left';
 }
 
-// ════════════════════════════════════
-//  UPDATE LOOP
-// ════════════════════════════════════
-function update(){
-  if(!started||gameOver||paused)return;
+function drawOver() {
+  ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.font=`bold ${Math.min(48,W*0.07)}px monospace`;
+  ctx.fillStyle='#ef4444'; ctx.fillText('💥 飞船坠毁', W/2, H*0.32);
+
+  ctx.font='bold 32px monospace'; ctx.fillStyle='#fff';
+  ctx.fillText(`最终分数: ${score}`, W/2, H*0.45);
+
+  // Coin earnings
+  const earned = Math.floor(score / 10);
+  if (earned>0) {
+    ctx.font='16px monospace'; ctx.fillStyle='#f59e0b';
+    ctx.fillText(`🎁 本局获得: +${earned} 金币`, W/2, H*0.52);
+  }
+
+  if (score>=highScore && score>0) {
+    ctx.font='18px monospace'; ctx.fillStyle='#f59e0b';
+    ctx.fillText('🏆 新纪录！', W/2, H*0.58);
+  }
+
+  ctx.fillStyle='#888'; ctx.font='14px monospace';
+  ctx.fillText(`最高分: ${highScore}`, W/2, H*0.64);
+  ctx.fillText(`金币余额: ${coins}`, W/2, H*0.68);
+
+  if (Math.floor(frame/30)%2===0) {
+    ctx.fillStyle='#00d4ff'; ctx.font='bold 20px monospace';
+    ctx.fillText('▶ 按任意键重新开始', W/2, H*0.78);
+  }
+  ctx.textAlign='left';
+}
+
+// ═══════════════════════════════════════
+//  UPDATE
+// ═══════════════════════════════════════
+function update() {
   frame++;
+  stars.forEach(s => { s.x-=s.speed; if(s.x<0){s.x=W;s.y=Math.random()*H;} });
 
-  // Player movement
-  var spd=0.2;
-  if(keys['KeyA']||keys['ArrowLeft'])  playerGroup.position.x-=spd;
-  if(keys['KeyD']||keys['ArrowRight']) playerGroup.position.x+=spd;
-  if(keys['KeyW']||keys['ArrowUp'])    playerGroup.position.y+=spd*0.5;
-  if(keys['KeyS']||keys['ArrowDown'])  playerGroup.position.y-=spd*0.5;
-  playerGroup.position.x=Math.max(-25,Math.min(25,playerGroup.position.x));
-  playerGroup.position.y=Math.max(2,Math.min(15,playerGroup.position.y));
+  if (state!=='playing') return;
 
-  // Banking
-  var tilt=0,pitch=0;
-  if(keys['KeyA']||keys['ArrowLeft'])  tilt=0.3;
-  if(keys['KeyD']||keys['ArrowRight']) tilt=-0.3;
-  if(keys['KeyW']||keys['ArrowUp'])    pitch=-0.15;
-  if(keys['KeyS']||keys['ArrowDown'])  pitch=0.15;
-  playerGroup.rotation.z=THREE.MathUtils.lerp(playerGroup.rotation.z,tilt,0.1);
-  playerGroup.rotation.x=THREE.MathUtils.lerp(playerGroup.rotation.x,pitch,0.1);
+  const accel=0.6, maxVY=7, friction=0.92;
+  if (keys['ArrowUp']||keys['KeyW']) ship.vy-=accel;
+  if (keys['ArrowDown']||keys['KeyS']) ship.vy+=accel;
+  if (touching) { const t=(touchY-ship.y)*0.15; ship.vy+=(t-ship.vy)*0.2; }
+  ship.vy=Math.max(-maxVY,Math.min(maxVY,ship.vy)); ship.vy*=friction;
+  ship.y+=ship.vy; ship.y=Math.max(ship.r+2,Math.min(H-ship.r-2,ship.y));
 
-  // Engine afterburner pulse
-  for(var side=-1;side<=1;side+=2){
-    var ab=playerGroup.getObjectByName('ab_'+side);
-    var abL=playerGroup.getObjectByName('abLight_'+side);
-    if(ab){ab.material.opacity=0.5+Math.sin(frame*0.4)*0.3+(keys['ShiftLeft']?0.3:0);}
-    if(abL){abL.intensity=2+Math.sin(frame*0.4)*1;}
+  // Shooting with buffs
+  if ((keys['Space']||keys['KeyZ']||keys['Enter']) && frame%shootCooldown===0) {
+    const offsets = multiShot===3 ? [-8,0,8] : [0];
+    offsets.forEach(dy => {
+      bullets.push({ x:ship.x+ship.r, y:ship.y+dy, vx:10, vy:0, r:4, enemy:false, pierce:bulletsCanPierce, hitIds:[] });
+    });
   }
 
-  // Invincibility
-  if(playerInvincible>0)playerInvincible--;
-  playerGroup.visible=!(playerInvincible>0&&frame%8<4);
+  // Nuke (press N key)
+  if (keys['KeyN'] && playerNukes>0) {
+    enemies.forEach(e=>{ boom(e.x,e.y); score+=e.type==='boss'?30:5; });
+    enemies=[];
+    bullets=[];
+    playerNukes--;
+    localStorage.setItem('space_nukes', playerNukes);
+    updateActiveBadges();
+    keys['KeyN']=false;
+  }
 
-  // Camera
-  camera.position.x=THREE.MathUtils.lerp(camera.position.x,playerGroup.position.x*0.4,0.05);
-  camera.position.y=THREE.MathUtils.lerp(camera.position.y,playerGroup.position.y+2,0.05);
-  camera.position.z=THREE.MathUtils.lerp(camera.position.z,playerGroup.position.z+12,0.05);
-  camera.lookAt(playerGroup.position.x*0.5,playerGroup.position.y-1,playerGroup.position.z-15);
+  if (ship.invincible>0) ship.invincible--;
 
-  // Spawn enemies
-  var rate=Math.max(35,90-wave*7);
-  if(frame%rate===0&&enemies.length<4+wave*2) spawnEnemy();
+  // Spawn
+  if (frame%Math.max(20,80-Math.floor(score/5))===0) spawnEnemy();
+  if (frame%250===0) spawnPowerup();
 
-  // City scroll
-  cityGroup.children.forEach(function(child){
-    if(child.position.z!==undefined){
-      child.position.z+=0.18;
-      if(child.position.z>30&&!child.userData.blink){
-        child.position.z-=260;
-        child.position.x=(child.position.x>0?1:-1)*(22+rand(0,8))+rand(-3,3);
-      }
-    }
-  });
-
-  // Blink lights
-  cityGroup.children.forEach(function(child){
-    if(child.userData.blink&&frame%Math.floor(child.userData.blinkRate*30)<1){
-      child.material.color.setHex(child.material.color.getHex()===0xff0000?0x330000:0xff0000);
-    }
-  });
+  // Bullets
+  bullets.forEach(b=>{ b.x+=b.vx; b.y+=b.vy||0; });
+  bullets=bullets.filter(b=>b.x<W+20 && b.y>0 && b.y<H);
 
   // Enemies
-  for(var ei=enemies.length-1;ei>=0;ei--){
-    var e=enemies[ei];
-    e.userData.wobble+=0.06;
-    e.position.z+=e.userData.spd;
-    e.position.x+=Math.sin(e.userData.wobble)*0.1;
-    e.rotation.z=Math.sin(e.userData.wobble)*0.3;
-    if(e.position.z>35){scene.remove(e);enemies.splice(ei,1);continue;}
-
-    e.userData.shootCD--;
-    if(e.userData.shootCD<=0){
-      e.userData.shootCD=e.userData.shootRate;
-      var eb=new THREE.Mesh(new THREE.SphereGeometry(0.2,6,6),new THREE.MeshBasicMaterial({color:0xff4400}));
-      eb.position.copy(e.position);
-      eb.userData={vz:0.4,life:100};
-      scene.add(eb);eBullets.push(eb);
+  enemies.forEach(e=>{
+    e.x+=e.vx; e.y+=e.vy||0; e.rot+=e.rotSpeed||0;
+    if (e.type==='ufo') {
+      if(frame%120<60) e.vy=0.8; else e.vy=-0.8;
+      e.y=Math.max(30,Math.min(H-30,e.y));
+      e.shootTimer++;
+      if(e.shootTimer>90){ bullets.push({x:e.x-e.r,y:e.y,vx:-6,r:3,enemy:true,hitIds:[]}); e.shootTimer=0; }
     }
+    if(e.y<e.r||e.y>H-e.r) e.vy*=-1;
+  });
 
-    // Hit player
-    var dx=e.position.x-playerGroup.position.x,dy=e.position.y-playerGroup.position.y,dz=e.position.z-playerGroup.position.z;
-    if(Math.sqrt(dx*dx+dy*dy+dz*dz)<3){
-      if(playerInvincible===0){playerHP=Math.max(0,playerHP-20);playerInvincible=50;explodeAt(e.position.x,e.position.z,0xff8800,15);}
-      scene.remove(e);enemies.splice(ei,1);
-      if(playerHP<=0)doGameOver();
+  // Powerups
+  powerups.forEach(p=>{ p.x+=p.vx; p.timer++; });
+  powerups=powerups.filter(p=>p.x>-20);
+
+  // Bullet-enemy collision
+  bullets.forEach((b,bi)=>{
+    enemies.forEach((e,ei)=>{
+      if(!b.enemy && circleCollide(b,e) && !b.hitIds.includes(ei)) {
+        if(b.pierce) {
+          e.hp--; b.hitIds.push(ei);
+          explode(e.x,e.y,'#ff8800',5);
+          if(e.hp<=0){ boom(e.x,e.y); enemies.splice(ei,1); score+=e.type==='boss'?30:e.type==='ufo'?15:5; }
+        } else {
+          e.hp--; bullets.splice(bi,1);
+          if(e.hp<=0){ boom(e.x,e.y); enemies.splice(ei,1); score+=e.type==='boss'?30:e.type==='ufo'?15:5; }
+          else explode(e.x,e.y,'#ff8800',8);
+        }
+      }
+    });
+  });
+
+  // Ship-enemy collision
+  if (ship.invincible===0 && !ship.shieldActive) {
+    for(const e of enemies) {
+      if(circleCollide(ship,e)) {
+        ship.hp--;
+        ship.invincible=90; boom(ship.x,ship.y);
+        if(ship.hp<=0){ state='over'; onGameOver(); }
+        break;
+      }
+    }
+  } else if (ship.invincible===0 && ship.shieldActive) {
+    for(const e of enemies) {
+      if(circleCollide(ship,e)) {
+        boom(e.x,e.y);
+        enemies=enemies.filter(en=>en!==e);
+        score+=5;
+      }
     }
   }
 
   // Enemy bullets
-  for(var bi=eBullets.length-1;bi>=0;bi--){
-    var eb=eBullets[bi];
-    eb.position.z+=eb.userData.vz;
-    eb.userData.life--;
-    if(eb.userData.life<=0||eb.position.z>30){scene.remove(eb);eBullets.splice(bi,1);continue;}
-    var dx=eb.position.x-playerGroup.position.x,dy=eb.position.y-playerGroup.position.y,dz=eb.position.z-playerGroup.position.z;
-    if(Math.sqrt(dx*dx+dy*dy+dz*dz)<2.5){
-      if(playerInvincible===0){playerHP=Math.max(0,playerHP-8);playerInvincible=30;if(playerHP<=0)doGameOver();}
-      explodeAt(eb.position.x,eb.position.z,0xff4400,8);
-      scene.remove(eb);eBullets.splice(bi,1);
-    }
-  }
+  bullets=bullets.filter(b=>{
+    if(!b.enemy) return true;
+    for(const e of enemies) if(circleCollide(b,e)) return false;
+    return true;
+  });
 
-  // Player bullets
-  for(var pbi=pBullets.length-1;pbi>=0;pbi--){
-    var pb=pBullets[pbi];
-    if(pb.userData.isBomb){
-      pb.userData.vy-=0.012;
-      pb.position.y+=pb.userData.vy;
-      pb.userData.life--;
-      // Building hit
-      for(var bi2=cityGroup.children.length-1;bi2>=0;bi2--){
-        var child=cityGroup.children[bi2];
-        if(child.position.z<-5&&child.position.z>-200){
-          var dx=pb.position.x-child.position.x,dz=pb.position.z-child.position.z;
-          var bldW=5,bldD=5;
-          if(Math.abs(dx)<bldW&&Math.abs(dz)<bldD&&pb.position.y<child.position.y+3&&pb.position.y>child.position.y-3){
-            explodeAt(pb.position.x,pb.position.z,0xff8800,20);
-            score+=10;
-            scene.remove(pb);pBullets.splice(pbi,1);
-            // Chance to destroy building
-            if(Math.random()>0.7){
-              var bx=child.position.x,bz=child.position.z;
-              for(var ci=cityGroup.children.length-1;ci>=0;ci--){
-                var c2=cityGroup.children[ci];
-                var cdx=c2.position.x-bx,cdz=c2.position.z-bz;
-                if(Math.abs(cdx)<8&&Math.abs(cdz)<8){cityGroup.remove(c2);}
-              }
-              explodeAt(bx,bz,0xffaa00,30);score+=50;
-            }
-            break;
-          }
-        }
+  // Powerup collision
+  powerups=powerups.filter(p=>{
+    if(circleCollide(ship,p)) {
+      if(p.type==='hp') ship.hp=Math.min(5,ship.hp+1);
+      if(p.type==='bomb'){ enemies.forEach(e=>{boom(e.x,e.y);score+=5;}); enemies=[]; }
+      if(p.type==='coin'){
+        const amt=10+Math.floor(Math.random()*10);
+        coins+=amt; localStorage.setItem('space_coins',coins);
+        showToast(`💰 +${amt} 金币！`); updateCoinUI();
       }
-      if(pb.position.y<-2||pb.userData.life<=0){scene.remove(pb);pBullets.splice(pbi,1);}
-    } else {
-      pb.position.z+=pb.userData.vz;
-      pb.userData.life--;
-      if(pb.userData.life<=0||pb.position.z<-60){scene.remove(pb);pBullets.splice(pbi,1);continue;}
-      for(var ei2=enemies.length-1;ei2>=0;ei2--){
-        var e2=enemies[ei2];
-        var dx=pb.position.x-e2.position.x,dy=pb.position.y-e2.position.y,dz=pb.position.z-e2.position.z;
-        if(Math.sqrt(dx*dx+dy*dy+dz*dz)<2.5){
-          e2.userData.hp--;
-          explodeAt(pb.position.x,pb.position.z,0x00ffff,6);
-          scene.remove(pb);pBullets.splice(pbi,1);
-          if(e2.userData.hp<=0){explodeAt(e2.position.x,e2.position.z,0xff6600,25);score+=e2.userData.sc;kills++;scene.remove(e2);enemies.splice(ei2,1);}
-          break;
-        }
-      }
+      return false;
     }
-  }
+    return true;
+  });
 
-  // Explosions / particles
-  for(var xi=explosions.length-1;xi>=0;xi--){
-    var ex=explosions[xi];
-    ex.age++;
-    if(ex.isNuke){
-      ex.r=ex.maxR*(ex.age/ex.maxAge);
-    } else if(ex.pts){
-      ex.pts.forEach(function(p){
-        if(p.userData.falling){
-          p.userData.vy-=0.005;
-          p.position.y+=p.userData.vy;
-          if(p.position.y>0)p.rotation.x+=p.userData.rx;p.rotation.y+=p.userData.ry;
-          if(p.position.y<0){p.position.y=0;p.userData.vy=0;}
-          p.userData.life--;
-          if(p.userData.life<=0)cityGroup.remove(p);
-        } else if(p.userData.isSmoke){
-          p.position.y+=p.userData.vy;
-          p.material.opacity-=p.userData.decay;
-          p.scale.multiplyScalar(1.01);
-          p.userData.life--;
-          if(p.userData.life<=0)cityGroup.remove(p);
-        } else {
-          if(p.userData.vx!==undefined){
-            p.position.x+=p.userData.vx;p.position.y+=p.userData.vy;p.position.z+=p.userData.vz;
-            p.userData.vy-=0.008;
-          }
-          p.material.opacity-=p.userData.decay;
-          p.userData.life--;
-          if(p.userData.life<=0)scene.remove(p);
-        }
-      });
-      if(ex.age>=ex.maxAge)explosions.splice(xi,1);
-    }
-  }
-
-  if(shootCD>0)shootCD--;
-  if(bombCD>0)bombCD--;
-  if(frame%600===0)wave++;
-  if(score>highScore){highScore=score;localStorage.setItem('ss3d_hs',highScore);}
-  updateHUD();
+  particles.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vx*=0.96; p.vy*=0.96; p.life-=p.decay; });
+  particles=particles.filter(p=>p.life>0);
+  explosions.forEach(e=>{ e.r+=4; e.alpha-=0.06; });
+  explosions=explosions.filter(e=>e.alpha>0);
+  enemies=enemies.filter(e=>e.x>-60);
 }
 
-function updateHUD(){
-  document.getElementById('score').textContent=score;
-  document.getElementById('kills').textContent=kills;
-  document.getElementById('wave').textContent=wave;
-  document.getElementById('hp').textContent=Math.max(0,playerHP);
-  document.getElementById('bombs').textContent=bombs;
+function onGameOver() {
+  if(score>highScore){ highScore=score; localStorage.setItem('space_shooter_hs',highScore); }
+  const earned=Math.floor(score/10);
+  if(earned>0){ coins+=earned; localStorage.setItem('space_coins',coins); updateCoinUI(); }
 }
 
-function doGameOver(){
-  gameOver=true;
-  var ov=document.getElementById('overlay');
-  ov.querySelector('h1').textContent='💥 被击落！';
-  ov.querySelector('p').textContent='分数：'+score+'  ·  最高：'+highScore+'  ·  点击重新开始';
-  document.getElementById('start-btn').textContent='🔄 再来';
-  setTimeout(function(){ov.style.display='flex';},800);
-}
-
-function onResize(){
-  camera.aspect=innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight);
-}
-
-function animate(){
-  requestAnimationFrame(animate);
+// ═══════════════════════════════════════
+//  LOOP
+// ═══════════════════════════════════════
+function loop() {
   update();
-  if(!paused)renderer.render(scene,camera);
+  ctx.fillStyle='#050810'; ctx.fillRect(0,0,W,H);
+  drawStars(); drawParticles(); drawExplosions();
+
+  if(state==='start') drawStart();
+  else if(state==='playing'||state==='over') {
+    enemies.forEach(e=>{ if(e.type==='ufo') drawUFO(e); else drawAsteroid(e); });
+    bullets.forEach(b=>{
+      ctx.fillStyle=b.enemy?'#ff4444':(b.pierce?'#a855f7':'#00d4ff');
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill();
+    });
+    powerups.forEach(drawPowerup);
+    drawShip(ship.x,ship.y,ship.r,ship.invincible);
+    drawHUD();
+    if(state==='over') drawOver();
+  }
+
+  requestAnimationFrame(loop);
 }
 
-}catch(e){document.getElementById('err-box').textContent=e.message;document.getElementById('err-box').style.display='block';console.error(e);}
+// ═══════════════════════════════════════
+//  INPUT
+// ═══════════════════════════════════════
+function tryStart() {
+  if(state==='start'){ state='playing'; resetGame(); }
+  else if(state==='over'){ state='playing'; resetGame(); }
+}
+
+document.addEventListener('keydown', e=>{
+  tryStart();
+  // Open shop with E
+  if(e.code==='KeyE'&&(state==='start'||state==='over')) openShop();
+});
+canvas.addEventListener('click', tryStart);
+canvas.addEventListener('touchstart', tryStart, { passive:false });
+
+// Init
+updateCoinUI();
+updateActiveBadges();
+loop();
 </script>
 </body>
 </html>
