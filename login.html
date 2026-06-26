@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 GameVault - 登录</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:#06060f;
+    font-family:'Segoe UI','PingFang SC',sans-serif;
+    min-height:100vh;
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+  }
+  .bg{
+    position:fixed;inset:0;z-index:0;
+    background:radial-gradient(ellipse at 30% 60%,rgba(120,0,255,.1) 0%,transparent 60%),
+                radial-gradient(ellipse at 70% 30%,rgba(0,180,255,.08) 0%,transparent 50%);
+  }
+  .bg::before{
+    content:'';position:absolute;inset:0;
+    background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  }
+  .box{
+    position:relative;z-index:10;
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:24px;padding:44px 40px;
+    width:min(400px,90vw);
+    backdrop-filter:blur(12px);
+    box-shadow:0 40px 80px rgba(0,0,0,.5);
+  }
+  .logo{font-size:40px;text-align:center;margin-bottom:8px}
+  h1{font-size:24px;font-weight:900;text-align:center;margin-bottom:4px;background:linear-gradient(135deg,#f5c842,#ff6b6b);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .sub{text-align:center;color:rgba(255,255,255,.4);font-size:13px;margin-bottom:32px}
+  label{font-size:13px;color:rgba(255,255,255,.6);margin-bottom:6px;display:block}
+  input{
+    width:100%;padding:13px 16px;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12);border-radius:12px;
+    color:#fff;font-size:15px;outline:none;margin-bottom:20px;
+    transition:border-color .2s;
+  }
+  input:focus{border-color:rgba(245,200,66,.5)}
+  input::placeholder{color:rgba(255,255,255,.25)}
+  .btn{
+    width:100%;padding:14px;border:none;border-radius:12px;
+    font-size:16px;font-weight:900;cursor:pointer;
+    background:linear-gradient(135deg,#f5c842,#f59e0b);
+    color:#000;transition:all .2s;margin-bottom:12px;
+    box-shadow:0 6px 20px rgba(245,200,66,.3);
+  }
+  .btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(245,200,66,.4)}
+  .skip{text-align:center}
+  .skip a{color:rgba(255,255,255,.3);font-size:13px;text-decoration:none}
+  .skip a:hover{color:#f5c842}
+  .error{color:#ff6b6b;font-size:12px;text-align:center;margin-bottom:12px;display:none}
+  .coins-preview{
+    background:rgba(245,200,66,.06);border:1px solid rgba(245,200,66,.15);
+    border-radius:12px;padding:12px 16px;margin-bottom:24px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .coins-preview span{color:rgba(255,255,255,.6);font-size:13px}
+  .coins-preview strong{color:#f5c842;font-size:15px}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="box">
+  <div class="logo">🎮</div>
+  <h1>GameVault</h1>
+  <p class="sub">登录后自动同步金币和VIP权益</p>
+
+  <div class="error" id="error"></div>
+
+  <div class="coins-preview">
+    <span>💰 当前金币</span>
+    <strong id="preview-coins">0</strong>
+  </div>
+
+  <label>设置你的昵称</label>
+  <input type="text" id="username" placeholder="比如：王者小明" maxlength="16" autocomplete="off">
+
+  <button class="btn" onclick="doLogin()">🚀 进入游戏</button>
+
+  <div class="skip">
+    <a href="index.html">跳过，直接进入 →</a>
+  </div>
+</div>
+
+<script>
+function $(id) { return document.getElementById(id); }
+
+// Show current coins
+function showCoins() {
+  const coins = parseInt(localStorage.getItem('gamevault_coins') || '0');
+  $('preview-coins').textContent = coins.toLocaleString();
+}
+
+// Load saved username
+const savedUser = localStorage.getItem('gamevault_username');
+if (savedUser) $('username').value = savedUser;
+
+showCoins();
+
+function doLogin() {
+  const name = $('username').value.trim();
+  if (!name || name.length < 2) {
+    $('error').textContent = '请输入至少2个字的昵称';
+    $('error').style.display = 'block';
+    return;
+  }
+  // Save username
+  localStorage.setItem('gamevault_username', name);
+  // Also sync vip flag
+  const isVip = localStorage.getItem('gamevault_vip') === 'true';
+  const coins = parseInt(localStorage.getItem('gamevault_coins') || '0');
+  // Save a timestamp for login record
+  localStorage.setItem('gamevault_last_login', Date.now().toString());
+
+  // Redirect to main page with welcome param
+  const dest = 'index.html?welcome=1&user=' + encodeURIComponent(name) +
+    '&coins=' + coins + '&vip=' + (isVip ? '1' : '0');
+  window.location.href = dest;
+}
+</script>
+</body>
+</html>
