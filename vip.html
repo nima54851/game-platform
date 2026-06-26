@@ -324,7 +324,7 @@ function closePay() {
 function goPaypal() {
   // Convert CNY to approximate USD for PayPal
   const usd = (parseFloat(pendingPrice) * 0.14).toFixed(2);
-  const returnUrl = window.location.origin + window.location.pathname.replace('vip.html','') + '?paid=1&item=' + encodeURIComponent(pendingItem);
+  const returnUrl = 'https://gamevault-pay.your-username.workers.dev/return' + '?item=' + encodeURIComponent(pendingItem) + '&amt=' + pendingPrice + '&cm=' + encodeURIComponent(JSON.stringify({item:pendingItem,price:pendingPrice}));
   const cancelUrl = window.location.href;
   const url = 'https://www.paypal.com/cgi-bin/webscr?cmd=_xclick' +
     '&business=' + encodeURIComponent(PAYPAL_BUSINESS) +
