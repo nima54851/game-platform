@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💰 我的金币 - GameVault</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#06060f;font-family:'Segoe UI','PingFang SC',sans-serif;color:#fff;min-height:100vh}
+  .bg{position:fixed;inset:0;z-index:0;overflow:hidden;
+    background:radial-gradient(ellipse at 20% 50%,rgba(120,0,255,.12) 0%,transparent 60%),
+                radial-gradient(ellipse at 80% 20%,rgba(0,180,255,.08) 0%,transparent 50%),#06060f}
+  .header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;
+    padding:20px 48px;background:rgba(6,6,15,.9);border-bottom:1px solid rgba(245,200,66,.15);
+    backdrop-filter:blur(12px)}
+  .logo{font-size:22px;font-weight:900;display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff}
+  .logo span{color:#f5c842}
+  .back{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;
+    padding:10px 22px;border-radius:10px;cursor:pointer;font-size:14px;transition:all .2s;text-decoration:none}
+  .back:hover{background:rgba(255,255,255,.12)}
+
+  .main{position:relative;z-index:10;max-width:900px;margin:0 auto;padding:48px 24px}
+
+  .balance-card{
+    background:linear-gradient(135deg,rgba(245,200,66,.15),rgba(245,158,11,.08));
+    border:1px solid rgba(245,200,66,.3);
+    border-radius:24px;padding:40px;text-align:center;margin-bottom:32px;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);
+  }
+  .balance-label{font-size:14px;color:rgba(255,255,255,.5);margin-bottom:12px;letter-spacing:.1em}
+  .balance-num{font-size:72px;font-weight:900;color:#f5c842;text-shadow:0 0 40px rgba(245,200,66,.5);line-height:1}
+  .balance-unit{font-size:18px;color:rgba(255,255,255,.4);margin-top:8px}
+  .balance-num small{font-size:36px}
+
+  .actions{display:flex;gap:16px;justify-content:center;margin-top:28px;flex-wrap:wrap}
+  .action-btn{padding:14px 36px;border:none;border-radius:14px;font-size:16px;font-weight:900;cursor:pointer;transition:all .2s;text-decoration:none}
+  .recharge-btn{background:linear-gradient(135deg,#f5c842,#f59e0b);color:#000;box-shadow:0 6px 20px rgba(245,200,66,.3)}
+  .recharge-btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(245,200,66,.5)}
+  .games-btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff}
+  .games-btn:hover{background:rgba(255,255,255,.12)}
+
+  .section-title{font-size:18px;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06)}
+  .section-title span{color:#f5c842}
+
+  .history{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden}
+  .history-item{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.04);font-size:14px}
+  .history-item:last-child{border-bottom:none}
+  .history-item .icon{font-size:24px;margin-right:14px}
+  .history-item .info{flex:1}
+  .history-item .name{font-weight:600;margin-bottom:2px}
+  .history-item .time{font-size:12px;color:rgba(255,255,255,.35)}
+  .history-item .amount{font-size:18px;font-weight:900}
+  .history-item .amount.plus{color:#4ade80}
+  .history-item .amount.minus{color:#ff6b6b}
+  .history-item .amount.vip{color:#f5c842}
+
+  .empty{text-align:center;padding:48px;color:rgba(255,255,255,.25);font-size:14px}
+  .empty-icon{font-size:48px;margin-bottom:12px;opacity:.5}
+
+  .vip-section{margin-top:32px;background:linear-gradient(135deg,rgba(120,0,255,.12),rgba(0,180,255,.08));border:1px solid rgba(245,200,66,.2);border-radius:20px;padding:28px;text-align:center}
+  .vip-section h3{font-size:20px;font-weight:900;margin-bottom:6px}
+  .vip-section h3 span{background:linear-gradient(135deg,#f5c842,#ff6b6b);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  .vip-section p{color:rgba(255,255,255,.45);font-size:14px;margin-bottom:16px}
+  .vip-active{background:linear-gradient(135deg,#f5c842,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:28px;font-weight:900}
+  .vip-btn{padding:12px 36px;border:none;border-radius:12px;background:linear-gradient(135deg,#f5c842,#f59e0b);color:#000;font-size:15px;font-weight:900;cursor:pointer;text-decoration:none;display:inline-block}
+
+  @media(max-width:640px){.header{padding:16px 20px}.balance-num{font-size:52px}.main{padding:24px 16px}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<div class="header">
+  <a href="index.html" class="logo">🎮 <span>GameVault</span></a>
+  <a href="index.html" class="back">← 返回游戏</a>
+</div>
+
+<div class="main">
+  <!-- Balance -->
+  <div class="balance-card">
+    <div class="balance-label">我的金币余额</div>
+    <div class="balance-num" id="balance">0</div>
+    <div class="balance-unit">金币</div>
+    <div class="actions">
+      <a href="vip.html" class="action-btn recharge-btn">💰 充值金币</a>
+      <a href="index.html" class="action-btn games-btn">🎮 去玩游戏</a>
+    </div>
+  </div>
+
+  <!-- VIP Status -->
+  <div class="vip-section" id="vipSection">
+    <h3>👑 VIP 会员状态</h3>
+    <p id="vipStatusText">开通 VIP，解锁全部游戏</p>
+    <div id="vipContent"></div>
+  </div>
+
+  <!-- Transaction History -->
+  <div class="section-title">📋 收支记录</div>
+  <div class="history" id="historyList">
+    <div class="empty">
+      <div class="empty-icon">📭</div>
+      暂无记录，充值后自动显示
+    </div>
+  </div>
+</div>
+
+<script>
+function $(id) { return document.getElementById(id); }
+
+function loadBalance() {
+  const coins = parseInt(localStorage.getItem('gamevault_coins') || '0');
+  $('balance').innerHTML = '<small>💰</small> ' + coins.toLocaleString();
+
+  const isVip = localStorage.getItem('gamevault_vip') === 'true';
+  const vc = $('vipContent');
+  if (isVip) {
+    $('vipStatusText').textContent = '👑 VIP 会员 · 永久有效';
+    vc.innerHTML = '<div class="vip-active">✅ 已开通</div>';
+  } else {
+    $('vipStatusText').textContent = '开通 VIP，解锁全部游戏';
+    vc.innerHTML = '<a href="vip.html" class="vip-btn">👑 开通 VIP · ¥29</a>';
+  }
+}
+
+function loadHistory() {
+  const list = $('historyList');
+  const tx = JSON.parse(localStorage.getItem('gamevault_tx') || '[]');
+
+  if (tx.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>暂无记录，充值后自动显示</div>';
+    return;
+  }
+
+  const coinAmounts = {
+    '500金币': 500, '2000金币': 2200, '5000金币': 5800, '10000金币': 12000,
+    'VIP永久会员': 0
+  };
+
+  list.innerHTML = tx.slice().reverse().map(t => {
+    let icon = '💰', amountClass = 'plus', amountText = '+' + t.amount.toLocaleString() + ' 💰';
+    if (t.type === 'spend') { amountClass = 'minus'; amountText = '-' + t.amount + ' 💰'; icon = '🎮'; }
+    if (t.type === 'vip') { amountClass = 'vip'; amountText = '👑 VIP'; icon = '👑'; }
+    const time = new Date(t.ts).toLocaleString('zh-CN', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    return `<div class="history-item">
+      <div class="icon">${icon}</div>
+      <div class="info">
+        <div class="name">${t.item}</div>
+        <div class="time">${time}</div>
+      </div>
+      <div class="amount ${amountClass}">${amountText}</div>
+    </div>`;
+  }).join('');
+}
+
+loadBalance();
+loadHistory();
+</script>
+</body>
+</html>
