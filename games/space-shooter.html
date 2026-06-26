@@ -761,6 +761,10 @@ function drawOver() {
 // ═══════════════════════════════════════
 //  UPDATE
 // ═══════════════════════════════════════
+// Enable canvas glow
+ctx.shadowBlur = 8;
+ctx.shadowColor = 'rgba(0,200,255,0.5)';
+
 function update() {
   frame++;
   stars.forEach(s => { s.x-=s.speed; if(s.x<0){s.x=W;s.y=Math.random()*H;} });
