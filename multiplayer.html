@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 多人游戏大厅 - GameVault</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#06060f;font-family:'Segoe UI','PingFang SC',sans-serif;color:#fff;min-height:100vh}
+.bg{position:fixed;inset:0;z-index:0;overflow:hidden;background:radial-gradient(ellipse at 20% 50%,rgba(120,0,255,.12) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(0,180,255,.08) 0%,transparent 50%),#06060f}
+.header{position:relative;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:20px 48px;background:rgba(6,6,15,.9);border-bottom:1px solid rgba(255,255,255,.06);backdrop-filter:blur(12px)}
+.logo{font-size:22px;font-weight:900;display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff}
+.logo span{color:#f5c842}
+.back{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff;padding:10px 22px;border-radius:10px;text-decoration:none}
+.main{position:relative;z-index:10;max-width:1000px;margin:0 auto;padding:40px 24px}
+.hero{text-align:center;margin-bottom:48px}
+.hero-icon{font-size:64px;margin-bottom:16px}
+.hero h1{font-size:clamp(26px,5vw,42px);font-weight:900;background:linear-gradient(135deg,#f5c842,#ff6b6b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
+.hero p{color:rgba(255,255,255,.45);font-size:15px}
+.panel{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:36px;margin-bottom:32px}
+.panel-title{font-size:18px;font-weight:700;margin-bottom:24px;color:rgba(255,255,255,.7)}
+.panel-title span{color:#f5c842}
+.action-row{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.action-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:28px;text-align:center;transition:all .3s}
+.action-box:hover{border-color:rgba(245,200,66,.3);transform:translateY(-2px)}
+.action-icon{font-size:40px;margin-bottom:12px}
+.action-box h3{font-size:18px;margin-bottom:8px}
+.action-box p{font-size:13px;color:rgba(255,255,255,.4);margin-bottom:20px}
+.input-row{display:flex;gap:10px;margin-bottom:14px}
+input{flex:1;padding:12px 16px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:#fff;font-size:15px;outline:none;transition:border-color .2s}
+input:focus{border-color:rgba(245,200,66,.5)}
+input::placeholder{color:rgba(255,255,255,.25)}
+.btn{padding:12px 24px;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-primary{background:linear-gradient(135deg,#f5c842,#f59e0b);color:#000}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(245,200,66,.4)}
+.btn-secondary{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#fff}
+.room-code-box{background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.25);border-radius:16px;padding:24px;text-align:center;margin-bottom:20px}
+.room-code-label{font-size:13px;color:rgba(255,255,255,.5);margin-bottom:10px}
+.room-code-num{font-size:48px;font-weight:900;color:#f5c842;letter-spacing:.2em;text-shadow:0 0 30px rgba(245,200,66,.5);margin-bottom:10px}
+.room-code-hint{font-size:13px;color:rgba(255,255,255,.35)}
+.room-status{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:16px;padding:24px;margin-bottom:20px}
+.room-status.waiting{background:rgba(245,200,66,.08);border-color:rgba(245,200,66,.25)}
+.section-title{font-size:16px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:16px}
+.players-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.player-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px;display:flex;align-items:center;gap:12px;transition:border-color .2s}
+.player-card:hover{border-color:rgba(245,200,66,.4)}
+.player-avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;flex-shrink:0}
+.player-info{flex:1;min-width:0}
+.player-name{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-status{font-size:12px;margin-top:2px}
+.player-status.online{color:#4ade80}
+.player-status.playing{color:#f59e0b}
+.player-status.offline{color:rgba(255,255,255,.3)}
+.invite-btn{padding:6px 12px;border:none;border-radius:8px;background:rgba(245,200,66,.15);border:1px solid rgba(245,200,66,.3);color:#f5c842;font-size:12px;font-weight:700;cursor:pointer}
+.invite-btn:hover{background:rgba(245,200,66,.25)}
+.games-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.mp-game{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px;text-align:center;cursor:pointer;transition:all .3s;text-decoration:none;color:#fff;display:block}
+.mp-game:hover{transform:translateY(-3px);border-color:rgba(245,200,66,.4);box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.mp-game.vip{border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.04)}
+.mp-game-icon{font-size:36px;margin-bottom:10px}
+.mp-game-name{font-weight:700;font-size:14px;margin-bottom:4px}
+.mp-game-desc{font-size:12px;color:rgba(255,255,255,.4)}
+.mp-game-tag{font-size:11px;background:rgba(245,200,66,.15);color:#f5c842;padding:2px 8px;border-radius:6px;margin-top:6px;display:inline-block}
+#notifications{position:fixed;top:90px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px;max-width:320px}
+.notif{background:rgba(13,13,26,.96);border:1px solid rgba(245,200,66,.25);border-radius:14px;padding:14px 18px;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.5);animation:slideIn .3s ease;display:flex;align-items:flex-start;gap:10px}
+.notif.success{border-color:rgba(74,222,128,.3)}
+.notif.error{border-color:rgba(239,68,68,.3)}
+@keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+.conn-bar{background:rgba(16,185,129,.1);border-bottom:1px solid rgba(16,185,129,.2);padding:8px 24px;font-size:13px;color:#4ade80;text-align:center}
+.conn-bar.offline{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.2);color:#ff6b6b}
+#roomSection{display:none}
+@media(max-width:640px){.header{padding:16px 20px}.action-row{grid-template-columns:1fr}.room-code-num{font-size:36px}.main{padding:24px 16px}}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div class="conn-bar" id="connBar">🔗 正在连接多人服务器...</div>
+<div class="header">
+  <a href="index.html" class="logo">🎮 <span>GameVault</span></a>
+  <a href="index.html" class="back">← 返回</a>
+</div>
+<div class="main">
+  <div class="hero">
+    <div class="hero-icon">🌐</div>
+    <h1>多人游戏大厅</h1>
+    <p>创建房间邀请朋友，或加入他人的房间，一起对战！</p>
+  </div>
+  <div class="panel">
+    <div class="panel-title">🎯 <span>开局一把</span></div>
+    <div class="action-row">
+      <div class="action-box">
+        <div class="action-icon">🚀</div>
+        <h3>创建房间</h3>
+        <p>生成房间码，发给朋友一起玩</p>
+        <button class="btn btn-primary" onclick="createRoom()">+ 创建房间</button>
+      </div>
+      <div class="action-box">
+        <div class="action-icon">🚪</div>
+        <h3>加入房间</h3>
+        <p>输入朋友发来的房间码加入</p>
+        <div class="input-row">
+          <input type="text" id="joinCode" placeholder="输入6位房间码" maxlength="6" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+          <button class="btn btn-primary" onclick="joinRoom()">加入</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="roomSection">
+    <div class="room-status waiting" id="roomStatus">
+      <h3 id="roomStatusTitle">⏳ 等待中...</h3>
+      <p id="roomStatusText">把房间码发给朋友</p>
+    </div>
+    <div class="room-code-box" id="roomCodeBox">
+      <div class="room-code-label">你的房间码</div>
+      <div class="room-code-num" id="displayCode">------</div>
+      <div class="room-code-hint">朋友加入后会自动同步游戏状态</div>
+    </div>
+  </div>
+  <div class="section-title">👥 在线玩家</div>
+  <div class="players-grid" id="playersGrid">
+    <div style="color:rgba(255,255,255,.25);font-size:14px;padding:20px 0">暂无在线玩家，刷新页面查看</div>
+  </div>
+  <div class="section-title" style="margin-top:32px">🎮 可联机游戏</div>
+  <div class="games-row">
+    <div class="mp-game" onclick="startMP('connect4')">
+      <div class="mp-game-icon">🔴</div>
+      <div class="mp-game-name">四子棋</div>
+      <div class="mp-game-desc">双人 · 先4连者胜</div>
+      <span class="mp-game-tag">免费</span>
+    </div>
+    <div class="mp-game" onclick="startMP('tictactoe')">
+      <div class="mp-game-icon">⭕</div>
+      <div class="mp-game-name">井字棋</div>
+      <div class="mp-game-desc">双人 · 经典对战</div>
+      <span class="mp-game-tag">免费</span>
+    </div>
+    <div class="mp-game mp-vip" onclick="startMP('gomoku')">
+      <div class="mp-game-icon">⚫</div>
+      <div class="mp-game-name">五子棋</div>
+      <div class="mp-game-desc">双人 · 连5胜</div>
+      <span class="mp-game-tag">VIP</span>
+    </div>
+    <div class="mp-game mp-vip" onclick="startMP('sudoku')">
+      <div class="mp-game-icon">🔢</div>
+      <div class="mp-game-name">数独对战</div>
+      <div class="mp-game-desc">双人 · 比拼速度</div>
+      <span class="mp-game-tag">VIP</span>
+    </div>
+    <div class="mp-game mp-vip" onclick="startMP('snake')">
+      <div class="mp-game-icon">🐍</div>
+      <div class="mp-game-name">贪吃蛇对战</div>
+      <div class="mp-game-desc">双人 · 生存竞赛</div>
+      <span class="mp-game-tag">VIP</span>
+    </div>
+    <div class="mp-game mp-vip" onclick="startMP('invaders')">
+      <div class="mp-game-icon">👾</div>
+      <div class="mp-game-name">太空入侵者</div>
+      <div class="mp-game-desc">双人 · 合作模式</div>
+      <span class="mp-game-tag">VIP</span>
+    </div>
+  </div>
+</div>
+<div id="notifications"></div>
+<script>
+const MY_NAME = localStorage.getItem('gamevault_username') || '玩家' + Math.floor(Math.random()*9999);
+const MY_ID = localStorage.getItem('gamevault_uid') || (() => {
+  const id = Math.random().toString(36).slice(2, 8).toUpperCase();
+  localStorage.setItem('gamevault_uid', id);
+  return id;
+})();
+let myRoom = null, roomCode = null, players = [], isHost = false, peerConn = null, ws = null;
+const API = 'http://localhost:18432';
+let connStatus = 'offline';
+
+function $(id) { return document.getElementById(id); }
+
+async function initAPI() {
+  try {
+    const r = await fetch(API + '/api/health');
+    if (r.ok) {
+      connStatus = 'online';
+      $('connBar').textContent = '🔗 已连接 GameVault 后端（本地）';
+      $('connBar').classList.remove('offline');
+      await loadPlayers();
+      await checkMyRoom();
+      return;
+    }
+  } catch(e) {}
+  connStatus = 'offline';
+  $('connBar').textContent = '⚠️ 后端未连接（启动 python3 game_server.py）';
+  $('connBar').classList.add('offline');
+  // Demo mode
+  setTimeout(() => {
+    const demos = [{id:'P001',name:'冰魂',status:'online'},{id:'P002',name:'火神',status:'playing'},{id:'P003',name:'雷帝',status:'online'}];
+    demos.forEach(d => { d.statusClass = d.status==='online'?'':(d.status==='playing'?'playing':'offline'); });
+    players = demos;
+    renderPlayers();
+  }, 500);
+}
+
+async function loadPlayers() {
+  try {
+    const r = await fetch(API + '/api/rooms?status=waiting');
+    if (r.ok) {
+      const rooms = await r.json();
+      players = rooms.slice(0, 6).map((room, i) => ({
+        id: room.host_uid, name: '玩家' + room.host_uid.slice(-4), status: 'online'
+      }));
+      if (players.length === 0) {
+        players = [{id:'D1',name:'冰魂',status:'online'},{id:'D2',name:'火神',status:'playing'},{id:'D3',name:'雷帝',status:'online'}];
+      }
+      renderPlayers();
+    }
+  } catch(e) {
+    players = [{id:'D1',name:'冰魂',status:'online'},{id:'D2',name:'火神',status:'playing'},{id:'D3',name:'雷帝',status:'online'}];
+    renderPlayers();
+  }
+}
+
+async function checkMyRoom() {
+  try {
+    const r = await fetch(API + '/api/rooms?status=waiting');
+    const rooms = await r.json();
+    const myActiveRoom = rooms.find(room => room.players && room.players.some(p => p.uid === MY_ID));
+    if (myActiveRoom) {
+      roomCode = myActiveRoom.id;
+      isHost = myActiveRoom.host_uid === MY_ID;
+      showRoom(roomCode, isHost);
+    }
+  } catch(e) {}
+}
+
+function renderPlayers() {
+  const grid = $('playersGrid');
+  if (players.length === 0) {
+    grid.innerHTML = '<div style="color:rgba(255,255,255,.25);font-size:14px">暂无在线玩家，刷新页面查看</div>';
+    return;
+  }
+  const colors = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#fee140'];
+  grid.innerHTML = players.map(p => {
+    const color = colors[p.name.charCodeAt(0) % colors.length];
+    const sc = p.status === 'online' ? '' : (p.status === 'playing' ? 'playing' : 'offline');
+    const st = p.status === 'online' ? '🟢 在线' : (p.status === 'playing' ? '🟡 游戏中' : '⚫ 离线');
+    const canInvite = p.status === 'online' && p.id !== MY_ID;
+    return `<div class="player-card">
+      <div class="player-avatar" style="background:linear-gradient(135deg,${color},${color}88)">${p.name[0]}</div>
+      <div class="player-info">
+        <div class="player-name">${p.name}</div>
+        <div class="player-status ${sc}">${st}</div>
+      </div>
+      ${canInvite ? `<button class="invite-btn" onclick="invitePlayer('${p.id}','${p.name}')">📩 邀请</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+async function createRoom() {
+  const code = genCode();
+  roomCode = code; isHost = true;
+  myRoom = {code, hostId: MY_ID, hostName: MY_NAME};
+  if (connStatus === 'online') {
+    try {
+      await fetch(API + '/api/rooms/create?uid=' + MY_ID + '&username=' + encodeURIComponent(MY_NAME));
+    } catch(e) {}
+  }
+  showRoom(code, true);
+  showNotif('✅ 房间创建成功！码：' + code + '（发送给朋友）', 'success');
+  connectWS(code);
+}
+
+async function joinRoom() {
+  const code = $('joinCode').value.trim().toUpperCase();
+  if (!code || code.length !== 6) { showNotif('请输入6位房间码', 'error'); return; }
+  if (connStatus === 'online') {
+    try {
+      const r = await fetch(API + '/api/rooms/join?room_id=' + code + '&uid=' + MY_ID + '&username=' + encodeURIComponent(MY_NAME));
+      if (!r.ok) { const d = await r.json(); showNotif('❌ ' + (d.detail || '加入失败'), 'error'); return; }
+    } catch(e) {}
+  }
+  roomCode = code; isHost = false;
+  showRoom(code, false);
+  showNotif('✅ 加入成功！正在与房间 ' + code + ' 连接...', 'success');
+  connectWS(code);
+}
+
+function showRoom(code, created) {
+  $('roomSection').style.display = 'block';
+  $('displayCode').textContent = code;
+  const statusEl = $('roomStatus');
+  if (created) {
+    statusEl.className = 'room-status waiting';
+    $('roomStatusTitle').textContent = '⏳ 等待好友加入...';
+    $('roomStatusText').textContent = '把房间码 ' + code + ' 发给朋友';
+  } else {
+    statusEl.className = 'room-status';
+    $('roomStatusTitle').textContent = '🎮 已加入房间';
+    $('roomStatusText').textContent = '等待房主开始游戏';
+  }
+}
+
+function connectWS(code) {
+  try {
+    ws = new WebSocket('ws://localhost:18432/ws/' + code + '/' + MY_ID + '?username=' + encodeURIComponent(MY_NAME));
+    ws.onopen = () => showNotif('🔗 实时同步已连接', 'success');
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === 'player_joined') showNotif('👋 ' + data.username + ' 加入了房间！', 'success');
+      if (data.type === 'start_game') { showNotif('🎮 游戏开始！', 'success'); setTimeout(() => { if (data.url) window.location.href = data.url; }, 1000); }
+    };
+    ws.onerror = () => showNotif('⚠️ 实时同步连接失败（本地后端未启动）', 'error');
+  } catch(e) { showNotif('⚠️ WebSocket 不可用，请启动本地后端', 'error'); }
+}
+
+async function invitePlayer(playerId, playerName) {
+  showNotif('📩 已向 ' + playerName + ' 发送邀请（房间码：' + (roomCode || genCode()) + '）', 'success');
+  if (!roomCode) await createRoom();
+}
+
+function startMP(gameId) {
+  const vipGames = ['gomoku','sudoku','snake','invaders'];
+  const isVip = localStorage.getItem('gamevault_vip') === 'true';
+  if (vipGames.includes(gameId) && !isVip) { showNotif('👑 此游戏需要VIP会员', 'error'); return; }
+  if (!roomCode) { createRoom(); setTimeout(() => startMP(gameId), 500); return; }
+  const gameUrls = { connect4:'games/connect4.html', tictactoe:'games/tictactoe.html', gomoku:'games/gomoku.html', sudoku:'games/sudoku.html', snake:'games/snake.html', invaders:'games/invaders.html' };
+  if (ws) {
+    ws.send(JSON.stringify({ type: 'start_game', url: (gameUrls[gameId] || '') + '?room=' + roomCode + '&uid=' + MY_ID }));
+  }
+  if (gameUrls[gameId]) {
+    showNotif('🎮 开启 ' + gameId + '（room: ' + roomCode + '）', 'success');
+  }
+}
+
+function showNotif(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = 'notif ' + type;
+  el.innerHTML = '<span>📢</span><span>' + msg + '</span>';
+  $('notifications').appendChild(el);
+  setTimeout(() => el.remove(), 5000);
+}
+
+initAPI();
+</script>
+</body>
+</html>
