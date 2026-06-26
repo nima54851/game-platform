@@ -169,7 +169,7 @@ const MY_ID = localStorage.getItem('gamevault_uid') || (() => {
   return id;
 })();
 let myRoom = null, roomCode = null, players = [], isHost = false, peerConn = null, ws = null;
-const API = 'http://localhost:18432';
+const API = 'https://gamevault-api.9a0fe67015e358c1ae53251ba3244d5b.workers.dev';
 let connStatus = 'offline';
 
 function $(id) { return document.getElementById(id); }
@@ -306,7 +306,7 @@ function showRoom(code, created) {
 
 function connectWS(code) {
   try {
-    ws = new WebSocket('ws://localhost:18432/ws/' + code + '/' + MY_ID + '?username=' + encodeURIComponent(MY_NAME));
+    ws = new WebSocket('wss://gamevault-api.9a0fe67015e358c1ae53251ba3244d5b.workers.dev/ws/' + code + '/' + MY_ID + '?username=' + encodeURIComponent(MY_NAME));
     ws.onopen = () => showNotif('🔗 实时同步已连接', 'success');
     ws.onmessage = (e) => {
       const data = JSON.parse(e.data);
