@@ -41,7 +41,22 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x06060f);
 
 const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 2000);
-camera.position.set(W / 2, H / 2, 600);
+// Fixed camera for better 3D perspective
+  camera.position.set(W / 2, H / 2, 280);
+  camera.lookAt(W / 2, H / 2, 0);
+  // Enable shadows
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+  // Adjust camera on resize
+  window.addEventListener('resize', () => {
+    const nW = Math.min(480, window.innerWidth - 20);
+    const nH = Math.min(640, window.innerHeight - 100);
+    renderer.setSize(nW, nH);
+    camera.aspect = nW / nH;
+    camera.updateProjectionMatrix();
+  });
 camera.lookAt(W / 2, H / 2, 0);
 
 // ═══════════════════════════════════════════════════════════
