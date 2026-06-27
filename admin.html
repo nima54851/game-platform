@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GameVault 管理后台</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:#0f0f1a;color:#e2e8f0;min-height:100vh}
+.top{background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:18px 32px;display:flex;align-items:center;justify-content:space-between}
+.top h1{font-size:20px;color:#fff}
+.badge{background:rgba(255,255,255,.2);color:#fff;padding:4px 14px;border-radius:20px;font-size:13px;cursor:pointer;border:none}
+.badge:hover{background:rgba(255,255,255,.3)}
+.main{padding:24px 32px;max-width:1200px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}
+.card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:22px}
+.card .lbl{color:rgba(255,255,255,.4);font-size:12px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.card .val{font-size:34px;font-weight:700;color:#fff}
+.card.users .val{color:#34d399}.card.vip .val{color:#fbbf24}
+.card.games .val{color:#60a5fa}.card.tx .val{color:#f472b6}
+.section{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:22px;margin-bottom:18px}
+.section h2{color:#fff;font-size:15px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:8px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:rgba(255,255,255,.4);font-weight:500;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
+td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.04)}
+tr:hover td{background:rgba(255,255,255,.03)}
+.vip-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.vip-badge.yes{background:rgba(251,191,36,.2);color:#fbbf24}
+.vip-badge.no{background:rgba(255,255,255,.07);color:rgba(255,255,255,.35)}
+button.danger{background:#ef4444;color:#fff;border:none;padding:5px 12px;border-radius:8px;cursor:pointer;font-size:13px}
+button.danger:hover{background:#dc2626}
+.coin{color:#fbbf24;font-weight:600}
+input.search{padding:8px 14px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.06);color:#fff;font-size:14px;width:220px}
+input.search::placeholder{color:rgba(255,255,255,.3)}
+input.search:focus{outline:none;border-color:#6366f1}
+
+/* 登录页 */
+#login-page{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.login-card{background:rgba(255,255,255,.06);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:48px 40px;width:380px;text-align:center}
+.login-card h1{color:#fff;margin-bottom:6px;font-size:26px}
+.login-card p{color:rgba(255,255,255,.5);margin-bottom:32px;font-size:14px}
+.login-card input{display:block;width:100%;padding:14px 16px;margin-bottom:14px;border:1px solid rgba(255,255,255,.15);border-radius:10px;background:rgba(255,255,255,.08);color:#fff;font-size:15px;outline:none;box-sizing:border-box}
+.login-card input:focus{border-color:#6366f1}
+.login-card .btn{width:100%;padding:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;margin-top:4px}
+.login-card .err{color:#f87171;margin-bottom:12px;font-size:13px;min-height:18px}
+.msg{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:10px;font-size:14px;z-index:1000;animation:fadeIn .3s}
+.msg.ok{background:#065f46;color:#6ee7b7}.msg.err{background:#7f1d1d;color:#fca5a5}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.hidden{display:none!important}
+.loading{color:rgba(255,255,255,.4);padding:20px;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- 登录页 -->
+<div id="login-page">
+  <div class="login-card">
+    <h1>🎮 GameVault</h1>
+    <p>管理后台登录</p>
+    <p class="err" id="login-err"></p>
+    <input type="password" id="login-pwd" placeholder="输入管理密码" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn" onclick="doLogin()">登 录</button>
+  </div>
+</div>
+
+<!-- 管理后台 -->
+<div id="admin-page" class="hidden">
+  <div class="top">
+    <h1>🎮 GameVault 管理后台</h1>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span class="badge">● 在线</span>
+      <button class="badge" onclick="logout()">退出</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="grid">
+      <div class="card users"><div class="lbl">用户总数</div><div class="val" id="stat-users">-</div></div>
+      <div class="card vip"><div class="lbl">VIP用户</div><div class="val" id="stat-vips">-</div></div>
+      <div class="card games"><div class="lbl">收录游戏</div><div class="val" id="stat-games">-</div></div>
+      <div class="card tx"><div class="lbl">交易记录</div><div class="val" id="stat-txs">-</div></div>
+    </div>
+    <div class="section">
+      <h2>👥 用户管理 <input class="search" placeholder="搜索用户名..." id="user-search" oninput="loadUsers(this.value)"></h2>
+      <div id="user-table"><div class="loading">加载中...</div></div>
+    </div>
+    <div class="section">
+      <h2>📊 交易记录</h2>
+      <div id="tx-table"><div class="loading">加载中...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = 'https://gamevault-api.huabaiwan54.workers.dev';
+let token = localStorage.getItem('gv_token') || '';
+
+// ─── Auth ───────────────────────────────────────────────
+async function doLogin() {
+  const pwd = document.getElementById('login-pwd').value;
+  if (!pwd) return;
+  try {
+    const r = await fetch(API + '/login', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'password='+encodeURIComponent(pwd),
+      credentials:'include'
+    });
+    if (r.redirected || r.url.includes('/admin')) {
+      token = pwd;
+      localStorage.setItem('gv_token', pwd);
+      showAdmin();
+    } else {
+      document.getElementById('login-err').textContent = '密码错误';
+    }
+  } catch(e) {
+    // Workers.dev might be blocked, try session auth fallback
+    if (token && pwd === token) {
+      showAdmin();
+    } else {
+      document.getElementById('login-err').textContent = '连接失败，请检查网络';
+    }
+  }
+}
+
+function logout() {
+  localStorage.removeItem('gv_token');
+  location.reload();
+}
+
+function showMsg(text, type='ok') {
+  const el = document.createElement('div');
+  el.className = 'msg '+type;
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ─── Admin ─────────────────────────────────────────────
+async function api(path, opts={}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: {
+      'Content-Type':'application/json',
+      'Authorization': 'Bearer ' + token,
+      ...(opts.headers||{})
+    },
+    credentials:'include'
+  });
+  if (!res.ok) throw new Error('API error: ' + res.status);
+  return res.json();
+}
+
+async function showAdmin() {
+  document.getElementById('login-page').classList.add('hidden');
+  document.getElementById('admin-page').classList.remove('hidden');
+  await loadStats();
+  await loadUsers('');
+  await loadTxs();
+}
+
+async function loadStats() {
+  try {
+    const d = await api('/api/stats');
+    document.getElementById('stat-users').textContent = d.users;
+    document.getElementById('stat-vips').textContent = d.vips;
+    document.getElementById('stat-games').textContent = d.games;
+    document.getElementById('stat-txs').textContent = d.txs;
+  } catch(e) {
+    // Fallback: show placeholder, try direct fetch
+    try {
+      const r = await fetch(API+'/api/stats', {
+        headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+        credentials:'include'
+      });
+      if(r.ok){
+        const d = await r.json();
+        document.getElementById('stat-users').textContent = d.users;
+        document.getElementById('stat-vips').textContent = d.vips;
+        document.getElementById('stat-games').textContent = d.games;
+        document.getElementById('stat-txs').textContent = d.txs;
+      } else {
+        document.getElementById('stat-users').textContent = '?';
+      }
+    } catch {
+      document.getElementById('stat-users').textContent = '⚠️';
+    }
+  }
+}
+
+async function loadUsers(q='') {
+  const el = document.getElementById('user-table');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const url = q ? `/api/users?q=${encodeURIComponent(q)}` : '/api/users';
+    const r = await fetch(API + url, {
+      headers:{'Authorization':'Bearer '+token,'Accept':'text/html'},
+      credentials:'include'
+    });
+    if(!r.ok){el.innerHTML='<p style="color:#f87171;padding:16px">加载失败</p>';return;}
+    const html = await r.text();
+    el.innerHTML = html || '<p style="color:rgba(255,255,255,.3);padding:20px">暂无用户</p>';
+    // attach vip toggle handlers
+    el.querySelectorAll('button.danger').forEach(btn => {
+      btn.onclick = async () => {
+        if(!confirm(btn.dataset.confirm||'确定切换VIP?')) return;
+        const uid = btn.closest('tr').querySelector('input[name=uid]')?.value;
+        if(!uid) return;
+        try {
+          await api('/api/users/vip', {
+            method:'POST',
+            body: JSON.stringify({uid}),
+            headers:{'Content-Type':'application/x-www-form-urlencoded'}
+          });
+          showMsg('操作成功');
+          await loadUsers(q);
+        } catch(e) { showMsg('操作失败','err'); }
+      };
+    });
+  } catch(e) {
+    el.innerHTML = '<p style="color:#f87171;padding:16px">连接失败，请检查网络</p>';
+  }
+}
+
+async function loadTxs() {
+  const el = document.getElementById('tx-table');
+  el.innerHTML = '<div class="loading">加载中...</div>';
+  try {
+    const r = await fetch(API+'/api/transactions', {
+      headers:{'Authorization':'Bearer '+token,'Accept':'text/html'},
+      credentials:'include'
+    });
+    if(!r.ok){el.innerHTML='<p style="color:#f87171;padding:16px">加载失败</p>';return;}
+    el.innerHTML = await r.text();
+  } catch(e) {
+    el.innerHTML = '<p style="color:#f87171;padding:16px">连接失败</p>';
+  }
+}
+
+// ─── Init ──────────────────────────────────────────────
+if (token) {
+  showAdmin();
+}
+</script>
+</body>
+</html>
