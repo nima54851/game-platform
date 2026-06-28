@@ -677,8 +677,7 @@ function switchTab(tab) {
   clearAuthUI();
 }
 
-async function handleAuth(e) {
-  e.preventDefault();
+async function handleAuth() {
   const err = document.getElementById('authErr');
   const ok = document.getElementById('authOk');
   err.classList.remove('show'); ok.classList.remove('show');
@@ -850,7 +849,7 @@ init();
       <button class="auth-tab active" id="tabLogin" onclick="switchTab('login')">登录</button>
       <button class="auth-tab" id="tabRegister" onclick="switchTab('register')">注册</button>
     </div>
-    <form id="authForm" onsubmit="handleAuth(event)">
+    <form id="authForm" onsubmit="handleAuth(); return false">
       <div class="auth-field" id="fieldNick" style="display:none">
         <label class="auth-label">游戏昵称（选填）</label>
         <input class="auth-input" type="text" id="authNick" placeholder="留空则用用户名">
@@ -863,7 +862,7 @@ init();
         <label class="auth-label">密码</label>
         <input class="auth-input" type="password" id="authPass" placeholder="至少6位" required minlength="6" autocomplete="current-password">
       </div>
-      <button class="auth-submit" type="submit" id="authBtn">登录</button>
+      <button class="auth-submit" type="button" id="authBtn" onclick="handleAuth()">登录</button>
       <div class="auth-err" id="authErr"></div>
       <div class="auth-ok-msg" id="authOk"></div>
     </form>
