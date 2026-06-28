@@ -389,7 +389,52 @@ body{
   .game-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
   .featured-grid{grid-template-columns:1fr;gap:12px}
   .nav-stats b{display:none}
-}
+.nav-auth{display:flex;align-items:center;gap:12px}
+.nav-auth-btn{padding:7px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.nav-auth-btn.login{background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
+.nav-auth-btn.login:hover{background:var(--surface3);color:var(--text)}
+.nav-auth-btn.register{background:linear-gradient(135deg,var(--cyan),var(--purple));color:#fff;box-shadow:0 4px 15px rgba(0,212,255,.3)}
+.nav-auth-btn.register:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,212,255,.4)}
+.nav-player{display:flex;align-items:center;gap:10px;padding:6px 12px;background:var(--surface);border:1px solid var(--border2);border-radius:10px}
+.nav-player-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--purple));display:flex;align-items:center;justify-content:center;font-size:14px}
+.nav-player-info{display:flex;flex-direction:column}
+.nav-player-name{font-size:13px;font-weight:700;color:var(--text)}
+.nav-player-stats{font-size:11px;color:var(--text2);display:flex;gap:8px}
+.nav-player-stats span{display:flex;align-items:center;gap:2px}
+.nav-player-logout{width:24px;height:24px;border-radius:6px;background:var(--surface2);border:none;cursor:pointer;color:var(--text2);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.nav-player-logout:hover{background:var(--red);color:#fff}
+
+/* ─── Auth Modal ─── */
+.auth-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-overlay.hidden{display:none}
+.auth-modal{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:36px;width:100%;max-width:400px;box-shadow:0 25px 60px rgba(0,0,0,.5);animation:modalIn .3s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.auth-title{text-align:center;font-size:22px;font-weight:900;margin-bottom:4px;background:linear-gradient(90deg,var(--cyan),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.auth-sub{text-align:center;color:var(--text2);font-size:13px;margin-bottom:24px}
+.auth-tabs{display:flex;background:var(--bg2);border-radius:10px;padding:4px;margin-bottom:24px}
+.auth-tab{flex:1;padding:8px;text-align:center;font-size:14px;font-weight:600;border-radius:8px;cursor:pointer;border:none;background:none;color:var(--text2);transition:all .2s}
+.auth-tab.active{background:var(--surface2);color:var(--text)}
+.auth-field{margin-bottom:14px}
+.auth-label{font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;display:block}
+.auth-input{width:100%;padding:11px 14px;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-size:14px;outline:none;transition:border-color .2s;box-sizing:border-box}
+.auth-input:focus{border-color:var(--cyan)}
+.auth-input::placeholder{color:var(--text3)}
+.auth-submit{width:100%;padding:13px;margin-top:6px;border-radius:12px;background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;cursor:pointer;color:#fff;font-size:15px;font-weight:700;transition:all .2s;box-shadow:0 4px 20px rgba(0,212,255,.3)}
+.auth-submit:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,212,255,.4)}
+.auth-submit:active{transform:translateY(0)}
+.auth-err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;padding:9px 12px;border-radius:8px;margin-top:10px;font-size:13px;text-align:center;display:none}
+.auth-err.show{display:block}
+.auth-ok-msg{background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.3);color:#6ee7b7;padding:9px 12px;border-radius:8px;margin-top:10px;font-size:13px;text-align:center;display:none}
+.auth-ok-msg.show{display:block}
+.auth-switch{text-align:center;margin-top:14px;font-size:13px;color:var(--text2)}
+.auth-switch a{color:var(--cyan);cursor:pointer;text-decoration:none}
+.auth-switch a:hover{text-decoration:underline}
+
+/* ─── Toast ─── */
+.toast{position:fixed;bottom:24px;right:24px;z-index:99999;padding:12px 20px;background:var(--surface);border:1px solid var(--border2);border-radius:12px;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.4);animation:toastIn .3s ease}
+.toast.ok{border-color:rgba(16,185,129,.5);color:#6ee7b7}
+.toast.err{border-color:rgba(239,68,68,.5);color:#f87171}
+@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
@@ -418,11 +463,7 @@ body{
     <div class="nav-logo-icon">🎮</div>
     <span class="nav-logo-text">GameVault</span>
   </div>
-  <div class="nav-stats">
-    <span>🎮 <b>23</b> 款游戏</span>
-    <span>⭐ <b>4.8</b> 评分</span>
-    <span>👑 <b>VIP</b> 可玩全部</span>
-  </div>
+  <div id="nav-right"></div>
 </nav>
 
 <div class="page">
@@ -554,10 +595,165 @@ const GAMES = [
 
 // ─── State ─────────────────────────────────────────────────────
 let currentFilter = 'all';
-const IS_VIP = false; // set true to unlock all
+const IS_VIP = false;
+const API = 'https://trx-bot-production.up.railway.app';
+
+// ─── Auth Helpers ───────────────────────────────────────────────
+function getToken() { return localStorage.getItem('gv_token') || ''; }
+function getPlayer() {
+  try { return JSON.parse(localStorage.getItem('gv_player') || 'null'); }
+  catch(e) { return null; }
+}
+function setSession(token, player) {
+  localStorage.setItem('gv_token', token);
+  localStorage.setItem('gv_player', JSON.stringify(player));
+}
+function clearSession() {
+  localStorage.removeItem('gv_token');
+  localStorage.removeItem('gv_player');
+}
+function apiHeaders() {
+  const t = getToken();
+  return t ? { 'Authorization': 'Bearer ' + t } : {};
+}
+
+function updateNav() {
+  const player = getPlayer();
+  const el = document.getElementById('nav-right');
+  if (!el) return;
+  if (!player) {
+    el.innerHTML = `
+      <div class="nav-auth">
+        <button class="nav-auth-btn login" onclick="showAuth('login')">登录</button>
+        <button class="nav-auth-btn register" onclick="showAuth('register')">注册</button>
+      </div>`;
+  } else {
+    const vipBadge = player.is_vip ? '<span style="color:var(--gold)">👑VIP</span>' : '';
+    el.innerHTML = `
+      <div class="nav-player">
+        <div class="nav-player-avatar">🎮</div>
+        <div class="nav-player-info">
+          <div class="nav-player-name">${player.nickname || player.username}${vipBadge ? ' '+vipBadge : ''}</div>
+          <div class="nav-player-stats">
+            <span>💰 ${player.coins || 0}</span>
+            <span>💎 ${player.diamonds || 0}</span>
+            <span>Lv${player.level || 1}</span>
+          </div>
+        </div>
+        <button class="nav-player-logout" title="退出登录" onclick="doLogout()">✕</button>
+      </div>`;
+  }
+}
+
+function showAuth(tab) {
+  const ov = document.getElementById('authOverlay');
+  if (!ov) return;
+  ov.classList.remove('hidden');
+  switchTab(tab);
+}
+function hideAuth() {
+  document.getElementById('authOverlay')?.classList.add('hidden');
+  clearAuthUI();
+}
+function clearAuthUI() {
+  document.getElementById('authErr').classList.remove('show');
+  document.getElementById('authOk').classList.remove('show');
+  document.getElementById('authForm').reset();
+}
+
+let authMode = 'login';
+function switchTab(tab) {
+  authMode = tab;
+  document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+  document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
+  document.getElementById('authBtn').textContent = tab === 'login' ? '登录' : '注册账号';
+  document.getElementById('authModalTitle').textContent = tab === 'login' ? '🎮 登录 GameVault' : '🎮 注册 GameVault';
+  document.getElementById('authModalSub').textContent = tab === 'login' ? '开始你的游戏之旅' : '创建账号，获得1000金币+50钻石欢迎礼';
+  document.getElementById('fieldNick').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('authSwitch').innerHTML = tab === 'login'
+    ? '还没有账号？<a onclick="switchTab(\'register\')">立即注册</a>'
+    : '已有账号？<a onclick="switchTab(\'login\')">去登录</a>';
+  clearAuthUI();
+}
+
+async function handleAuth(e) {
+  e.preventDefault();
+  const err = document.getElementById('authErr');
+  const ok = document.getElementById('authOk');
+  err.classList.remove('show'); ok.classList.remove('show');
+  const user = document.getElementById('authUser').value.trim();
+  const pass = document.getElementById('authPass').value;
+  const nick = document.getElementById('authNick').value.trim();
+  const endpoint = authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
+  const body = authMode === 'register'
+    ? `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}&nickname=${encodeURIComponent(nick)}`
+    : `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`;
+  try {
+    const r = await fetch(API + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) {
+      err.textContent = d.detail || d.message || '请求失败，请重试';
+      err.classList.add('show'); return;
+    }
+    setSession(d.token, d.player);
+    ok.textContent = authMode === 'register'
+      ? `✅ 注册成功！获得 💰1000金币 + 💎50钻石 欢迎礼！`
+      : `✅ 欢迎回来，${d.player.nickname || d.player.username}！`;
+    ok.classList.add('show');
+    updateNav();
+    setTimeout(hideAuth, 1500);
+  } catch(err_) {
+    err.textContent = '网络错误，请检查网络连接';
+    err.classList.add('show');
+  }
+}
+
+async function doLogout() {
+  clearSession();
+  updateNav();
+  showToast('已退出登录', 'ok');
+}
+
+async function checkMe() {
+  const token = getToken();
+  if (!token) return;
+  try {
+    const r = await fetch(API + '/api/auth/me', {
+      headers: { 'X-Player-Token': token }
+    });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.player) setSession(token, d.player);
+      else clearSession();
+    } else { clearSession(); }
+  } catch(e) { /* offline, keep session */ }
+}
+
+function showToast(msg, type='ok') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
 
 // ─── Init ───────────────────────────────────────────────────────
-function init() { renderAll(); }
+async function init() {
+  await checkMe();
+  updateNav();
+  // Show auth modal if not logged in
+  if (!getToken()) showAuth('register');
+  renderAll();
+}
+
+// Auth overlay click to close
+document.getElementById('authOverlay')?.addEventListener('click', e => {
+  if (e.target === document.getElementById('authOverlay')) hideAuth();
+});
 
 // ─── Render ─────────────────────────────────────────────────────
 function renderAll() {
@@ -644,5 +840,37 @@ document.addEventListener('keydown', e => {
 
 init();
 </script>
+<!-- ─── Auth Modal ─── -->
+<div class="auth-overlay hidden" id="authOverlay">
+  <div class="auth-modal">
+    <div class="auth-title" id="authModalTitle">🎮 登录 GameVault</div>
+    <div class="auth-sub" id="authModalSub">开始你的游戏之旅</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin" onclick="switchTab('login')">登录</button>
+      <button class="auth-tab" id="tabRegister" onclick="switchTab('register')">注册</button>
+    </div>
+    <form id="authForm" onsubmit="handleAuth(event)">
+      <div class="auth-field" id="fieldNick" style="display:none">
+        <label class="auth-label">游戏昵称（选填）</label>
+        <input class="auth-input" type="text" id="authNick" placeholder="留空则用用户名">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">用户名</label>
+        <input class="auth-input" type="text" id="authUser" placeholder="3-20个字符" required minlength="3" maxlength="20" autocomplete="username">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">密码</label>
+        <input class="auth-input" type="password" id="authPass" placeholder="至少6位" required minlength="6" autocomplete="current-password">
+      </div>
+      <button class="auth-submit" type="submit" id="authBtn">登录</button>
+      <div class="auth-err" id="authErr"></div>
+      <div class="auth-ok-msg" id="authOk"></div>
+    </form>
+    <div class="auth-switch" id="authSwitch">
+      还没有账号？<a onclick="switchTab('register')">立即注册</a>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
