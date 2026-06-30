@@ -409,7 +409,56 @@ body{
 .stat-sep{color:var(--border2);font-size:10px;align-self:center}
 .nav-player-logout{width:26px;height:26px;border-radius:6px;background:var(--surface2);border:none;cursor:pointer;color:var(--text2);font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
 .nav-player-logout:hover{background:var(--red);color:#fff}
-}
+/* ─── Notification Bell ─── */
+.nav-bell{position:relative;display:flex;align-items:center;cursor:pointer;padding:6px 10px;border-radius:10px;transition:all .2s;font-size:20px;background:rgba(255,255,255,.05);border:1px solid transparent}
+.nav-bell:hover{background:rgba(255,255,255,.1);border-color:var(--border2)}
+.nav-bell-badge{position:absolute;top:2px;right:2px;background:#ff4444;color:#fff;font-size:9px;font-weight:900;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;line-height:1;padding:0 3px;box-shadow:0 0 6px rgba(255,68,68,.5)}
+/* ─── Profile Button ─── */
+.nav-profile-btn{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--purple));border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;transition:all .2s;box-shadow:0 0 10px rgba(0,212,255,.2)}
+.nav-profile-btn:hover{transform:scale(1.08);box-shadow:0 0 16px rgba(0,212,255,.4)}
+/* ─── Notification Panel ─── */
+.notif-panel{position:fixed;top:64px;right:16px;width:320px;max-height:480px;background:var(--surface);border:1px solid var(--border2);border-radius:16px;z-index:9999;display:none;flex-direction:column;overflow:hidden;box-shadow:0 16px 60px rgba(0,0,0,.5)}
+.notif-panel.show{display:flex}
+.notif-panel-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border2)}
+.notif-panel-header h3{font-size:14px;font-weight:700;color:var(--text);margin:0}
+.notif-panel-close{background:none;border:none;color:var(--text2);cursor:pointer;font-size:16px;padding:4px;border-radius:6px;transition:all .2s}
+.notif-panel-close:hover{background:var(--surface2);color:var(--text)}
+.notif-list{flex:1;overflow-y:auto;padding:8px}
+.notif-empty{text-align:center;color:var(--text2);font-size:13px;padding:32px 16px;line-height:1.8}
+.notif-item{padding:12px;border-radius:10px;margin-bottom:6px;cursor:pointer;transition:all .2s;border:1px solid transparent}
+.notif-item:hover{border-color:var(--border2)}
+.notif-item.new{background:rgba(0,212,255,.06);border-color:rgba(0,212,255,.15)}
+.notif-item.urgent{background:rgba(255,68,68,.06);border-color:rgba(255,68,68,.15)}
+.notif-item-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
+.notif-item-body{font-size:12px;color:var(--text2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.notif-item-time{font-size:11px;color:var(--text2);margin-top:6px;opacity:.6}
+.notif-tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-right:6px}
+.notif-tag.official{background:rgba(0,212,255,.15);color:var(--cyan)}
+.notif-tag.event{background:rgba(255,136,0,.15);color:#ff8800}
+.notif-tag.urgent{background:rgba(255,68,68,.15);color:#ff4444}
+.notif-tag.promo{background:rgba(0,255,136,.15);color:#00ff88}
+/* ─── Profile Edit Modal ─── */
+.profile-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:20px}
+.profile-overlay.show{display:flex}
+.profile-modal{background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:28px;width:100%;max-width:380px;animation:modalIn .2s ease}
+@keyframes modalIn{from{transform:scale(.95);opacity:0}to{transform:scale(1);opacity:1}}
+.profile-modal h2{font-size:18px;font-weight:900;color:var(--text);margin-bottom:20px;text-align:center}
+.profile-avatar-section{display:flex;flex-direction:column;align-items:center;margin-bottom:20px}
+.profile-avatar-preview{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--purple));display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:10px;box-shadow:0 0 20px rgba(0,212,255,.2)}
+.profile-avatar-label{font-size:12px;color:var(--text2);margin-bottom:8px}
+.profile-emoji-grid{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:280px}
+.profile-emoji-btn{width:40px;height:40px;border-radius:10px;border:2px solid var(--border2);background:var(--surface2);font-size:20px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.profile-emoji-btn:hover{border-color:var(--cyan);transform:scale(1.1)}
+.profile-emoji-btn.selected{border-color:var(--cyan);background:rgba(0,212,255,.1);box-shadow:0 0 10px rgba(0,212,255,.3)}
+.profile-field{margin-bottom:16px}
+.profile-field label{font-size:12px;color:var(--text2);display:block;margin-bottom:6px}
+.profile-field input{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;color:var(--text);font-size:14px;font-family:monospace;transition:border-color .2s;box-sizing:border-box}
+.profile-field input:focus{outline:none;border-color:var(--cyan)}
+.profile-actions{display:flex;gap:10px;margin-top:20px}
+.profile-save{flex:1;padding:11px;background:linear-gradient(135deg,var(--cyan),var(--purple));color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s}
+.profile-save:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,212,255,.3)}
+.profile-cancel{flex:1;padding:11px;background:var(--surface2);color:var(--text2);border:1px solid var(--border2);border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.profile-cancel:hover{border-color:var(--text2)}
 
 /* ─── Auth Modal ─── */
 .auth-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px}
@@ -636,11 +685,17 @@ function updateNav() {
         <button class="nav-auth-btn register" onclick="showAuth('register')">注册</button>
       </div>`;
   } else {
+    const avatar = player.avatar || '🎮';
     const vipBadge = player.is_vip ? '<span class="vip-badge">👑 VIP</span>' : '';
     const fmt = n => n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'K' : String(n);
+    const bellBadge = window._notifCount ? `<span class="nav-bell-badge" id="bellBadge">${window._notifCount > 99 ? '99+' : window._notifCount}</span>` : '';
     el.innerHTML = `
+      <div class="nav-bell" onclick="toggleNotifPanel()" title="官方通知">
+        🔔${bellBadge}
+      </div>
+      <button class="nav-profile-btn" onclick="showProfile()" title="个人资料">${avatar}</button>
       <div class="nav-player">
-        <div class="nav-player-avatar">🎮</div>
+        <div class="nav-player-avatar">${avatar}</div>
         <div class="nav-player-info">
           <div class="nav-player-name-row">
             <div class="nav-player-name">${player.nickname || player.username}</div>
@@ -878,6 +933,174 @@ init();
     </div>
   </div>
 </div>
+
+<!-- Notification Panel -->
+<div class="notif-panel" id="notifPanel">
+  <div class="notif-panel-header">
+    <h3>📢 官方通知</h3>
+    <button class="notif-panel-close" onclick="toggleNotifPanel()">✕</button>
+  </div>
+  <div class="notif-list" id="notifList">
+    <div class="notif-empty">暂无通知<br><small style="opacity:.5">登录后查看官方消息</small></div>
+  </div>
+</div>
+
+<!-- Profile Edit Modal -->
+<div class="profile-overlay" id="profileOverlay" onclick="if(event.target===this)hideProfile()">
+  <div class="profile-modal" onclick="event.stopPropagation()">
+    <h2>👤 个人资料</h2>
+    <div class="profile-avatar-section">
+      <div class="profile-avatar-preview" id="profilePreview">🎮</div>
+      <div class="profile-avatar-label">选择头像</div>
+      <div class="profile-emoji-grid" id="avatarGrid"></div>
+    </div>
+    <div class="profile-field">
+      <label>昵称</label>
+      <input type="text" id="profileNick" placeholder="输入新昵称" maxlength="20">
+    </div>
+    <div class="profile-actions">
+      <button class="profile-save" onclick="saveProfile()">保存</button>
+      <button class="profile-cancel" onclick="hideProfile()">取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Notification System ──────────────────────────────────────────
+const AVATARS = ['🎮','🧙','🦊','🐱','🐶','🦁','🐼','🐨','🐯','🦄','🐲','🦅','🦈','🦋','🌟','🚀','⚡','🔥','💎','👑','🎯','🏆','🎪','🎭'];
+let _notifCount = 0;
+let _notifs = [];
+let _selectedAvatar = '🎮';
+
+// Official announcements (hardcoded fallback + API)
+const FALLBACK_NOTIFS = [
+  { type:'official', title:'🎉 欢迎来到 GameVault', body:'全网最全免费在线游戏平台，登录即送1000金币+50钻石，快去体验吧！', time:'刚刚' },
+  { type:'event',   title:'🔥 周末限时活动', body:'本周六、日全平台游戏双倍金币！叫上朋友一起玩，奖励翻倍！', time:'2天前' },
+];
+
+async function fetchNotifs() {
+  const token = getToken();
+  if (!token) { _notifs = []; _notifCount = 0; return; }
+  try {
+    const r = await fetch(API + '/api/notifications', { headers:{'Authorization':'Bearer '+token} });
+    if (r.ok) {
+      const d = await r.json();
+      if (Array.isArray(d) && d.length) { _notifs = d; _notifCount = d.filter(n => !n.read).length; return; }
+      if (d.notifications) { _notifs = d.notifications; _notifCount = d.notifications.filter(n => !n.read).length; return; }
+    }
+  } catch(e) {}
+  _notifs = FALLBACK_NOTIFS;
+  _notifCount = FALLBACK_NOTIFS.length;
+}
+
+function renderNotifPanel() {
+  const list = document.getElementById('notifList');
+  if (!list) return;
+  const notifs = _notifs.length ? _notifs : FALLBACK_NOTIFS;
+  if (!notifs.length) {
+    list.innerHTML = '<div class="notif-empty">暂无通知</div>';
+    return;
+  }
+  list.innerHTML = notifs.map(n => {
+    const tag = {official:'official', event:'event', urgent:'urgent', promo:'promo'}[n.type] || 'official';
+    const tagTxt = {official:'官方', event:'活动', urgent:'紧急', promo:'福利'}[n.type] || '通知';
+    return `<div class="notif-item ${n.new||n.unread?'new':''}" onclick="this.classList.remove('new')">
+      <div><span class="notif-tag ${tag}">${tagTxt}</span><span class="notif-item-title">${n.title}</span></div>
+      <div class="notif-item-body">${n.body||''}</div>
+      <div class="notif-item-time">${n.time||''}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleNotifPanel() {
+  const panel = document.getElementById('notifPanel');
+  if (!panel) return;
+  const isOpen = panel.classList.contains('show');
+  panel.classList.toggle('show');
+  if (!isOpen) { fetchNotifs(); setTimeout(renderNotifPanel, 100); }
+}
+
+// Close notif panel on outside click
+document.addEventListener('click', e => {
+  const panel = document.getElementById('notifPanel');
+  const bell = e.target.closest('.nav-bell');
+  if (panel && panel.classList.contains('show') && !panel.contains(e.target) && !bell) {
+    panel.classList.remove('show');
+  }
+});
+
+// ─── Profile System ────────────────────────────────────────────────
+function showProfile() {
+  const p = getPlayer();
+  if (!p) { showAuth('login'); return; }
+  _selectedAvatar = p.avatar || '🎮';
+  document.getElementById('profilePreview').textContent = _selectedAvatar;
+  document.getElementById('profileNick').value = p.nickname || p.username || '';
+  renderAvatarGrid();
+  document.getElementById('profileOverlay').classList.add('show');
+}
+
+function hideProfile() {
+  document.getElementById('profileOverlay')?.classList.remove('show');
+}
+
+function renderAvatarGrid() {
+  const grid = document.getElementById('avatarGrid');
+  if (!grid) return;
+  grid.innerHTML = AVATARS.map(a =>
+    `<button class="profile-emoji-btn ${a === _selectedAvatar ? 'selected' : ''}" onclick="selectAvatar('${a}')">${a}</button>`
+  ).join('');
+}
+
+function selectAvatar(a) {
+  _selectedAvatar = a;
+  document.getElementById('profilePreview').textContent = a;
+  renderAvatarGrid();
+}
+
+async function saveProfile() {
+  const token = getToken();
+  if (!token) { showAuth('login'); return; }
+  const nickname = document.getElementById('profileNick').value.trim();
+  if (!nickname) { showToast('请输入昵称', 'err'); return; }
+  if (nickname.length < 2 || nickname.length > 20) { showToast('昵称需2-20个字符', 'err'); return; }
+  try {
+    const r = await fetch(API + '/api/profile', {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nickname, avatar: _selectedAvatar })
+    });
+    if (r.ok) {
+      const d = await r.json();
+      const updated = d.player || d;
+      setSession(token, updated);
+      updateNav();
+      hideProfile();
+      showToast('✅ 资料已更新', 'ok');
+    } else {
+      const err = await r.text();
+      showToast('更新失败: ' + err, 'err');
+    }
+  } catch(e) {
+    // If API not available, update local only
+    const p = getPlayer();
+    p.nickname = nickname;
+    p.avatar = _selectedAvatar;
+    setSession(token, p);
+    updateNav();
+    hideProfile();
+    showToast('✅ 资料已保存（本地）', 'ok');
+  }
+}
+
+// ─── Init ────────────────────────────────────────────────────────
+(async () => {
+  await fetchNotifs();
+  // Update bell badge in nav
+  const el = document.getElementById('nav-right');
+  if (el) updateNav();
+})();
+</script>
 
 </body>
 </html>
