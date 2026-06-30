@@ -678,8 +678,11 @@ function updateNav() {
   const player = getPlayer();
   const el = document.getElementById('nav-right');
   if (!el) return;
+  const bellBadge = window._notifCount ? `<span class="nav-bell-badge" id="bellBadge">${window._notifCount > 99 ? '99+' : window._notifCount}</span>` : '';
+  const bellBtn = `<div class="nav-bell" onclick="showNotifOrLogin()" title="官方通知">🔔${bellBadge}</div>`;
   if (!player) {
     el.innerHTML = `
+      ${bellBtn}
       <div class="nav-auth">
         <button class="nav-auth-btn login" onclick="showAuth('login')">登录</button>
         <button class="nav-auth-btn register" onclick="showAuth('register')">注册</button>
@@ -1010,6 +1013,12 @@ function renderNotifPanel() {
       <div class="notif-item-time">${n.time||''}</div>
     </div>`;
   }).join('');
+}
+
+function showNotifOrLogin() {
+  const player = getPlayer();
+  if (!player) { showAuth('login'); return; }
+  toggleNotifPanel();
 }
 
 function toggleNotifPanel() {
