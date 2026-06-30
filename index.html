@@ -693,9 +693,7 @@ function updateNav() {
     const fmt = n => n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'K' : String(n);
     const bellBadge = window._notifCount ? `<span class="nav-bell-badge" id="bellBadge">${window._notifCount > 99 ? '99+' : window._notifCount}</span>` : '';
     el.innerHTML = `
-      <div class="nav-bell" onclick="toggleNotifPanel()" title="官方通知">
-        🔔${bellBadge}
-      </div>
+      ${bellBtn}
       <button class="nav-profile-btn" onclick="showProfile()" title="个人资料">${avatar}</button>
       <div class="nav-player">
         <div class="nav-player-avatar">${avatar}</div>
