@@ -812,8 +812,6 @@ function showToast(msg, type='ok') {
 async function init() {
   await checkMe();
   updateNav();
-  // Show auth modal if not logged in
-  if (!getToken()) showAuth('register');
   renderAll();
 }
 
@@ -981,7 +979,11 @@ const FALLBACK_NOTIFS = [
 
 async function fetchNotifs() {
   const token = getToken();
-  if (!token) { _notifs = []; _notifCount = 0; return; }
+  if (!token) {
+    _notifs = FALLBACK_NOTIFS;
+    _notifCount = FALLBACK_NOTIFS.length;
+    return;
+  }
   try {
     const r = await fetch(API + '/api/notifications', { headers:{'Authorization':'Bearer '+token} });
     if (r.ok) {
@@ -1015,7 +1017,14 @@ function renderNotifPanel() {
 
 function showNotifOrLogin() {
   const player = getPlayer();
-  if (!player) { showAuth('login'); return; }
+  if (!player) {
+    // 未登录也显示通知（fallback），同时提示登录
+    fetchNotifs(); // 加载 FALLBACK_NOTIFS
+    setTimeout(() => {
+      toggleNotifPanel();
+    }, 80);
+    return;
+  }
   toggleNotifPanel();
 }
 
