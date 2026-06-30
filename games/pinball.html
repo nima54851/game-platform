@@ -106,7 +106,7 @@ canvas { display: block; }
   <div id="game-over-text">GAME OVER</div>
   <div id="final-score-text"></div>
   <div id="overlay-controls">
-    Z — 左挡板 &nbsp;|&nbsp; / — 右挡板<br>
+    Z — 左挡板 &nbsp;|&nbsp; X — 右挡板<br>
     SPACE — 发射弹珠
   </div>
   <button id="start-btn" onclick="start()">▶ 开始</button>
@@ -172,7 +172,7 @@ window.addEventListener('keydown', e => {
     if (state === 'plunger' || state === 'attract') plungerCharging = true;
   }
   if (e.code === 'KeyZ' && flippers.left) flippers.left.pressed = true;
-  if (e.code === 'Slash' && flippers.right) flippers.right.pressed = true;
+  if (e.code === 'KeyX' && flippers.right) flippers.right.pressed = true;
 });
 window.addEventListener('keyup', e => {
   keys[e.code] = false;
@@ -184,7 +184,7 @@ window.addEventListener('keyup', e => {
     plungerPull = 0;
   }
   if (e.code === 'KeyZ' && flippers.left) flippers.left.pressed = false;
-  if (e.code === 'Slash' && flippers.right) flippers.right.pressed = false;
+  if (e.code === 'KeyX' && flippers.right) flippers.right.pressed = false;
 });
 
 // ─── Init ────────────────────────────────────────────────────────
@@ -831,7 +831,7 @@ function draw() {
     ctx.fillStyle = 'rgba(0,255,255,0.5)';
     ctx.font = '12px Courier New';
     ctx.textAlign = 'center';
-    ctx.fillText('Z — LEFT FLIPPER    / — RIGHT FLIPPER    SPACE — LAUNCH', W / 2, H * 0.55 + 30);
+    ctx.fillText('Z — LEFT FLIPPER    X — RIGHT FLIPPER    SPACE — LAUNCH', W / 2, H * 0.55 + 30);
     ctx.restore();
   }
 
