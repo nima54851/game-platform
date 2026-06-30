@@ -246,11 +246,15 @@ function draw() {
     ctx.beginPath();
     ctx.moveTo(ball.x, ball.y);
     const steps = 30;
-    let px = ball.x, py = ball.y, pvx = Math.cos(aimAngle), pvy = Math.sin(aimAngle);
+    let simX = ball.x, simY = ball.y;
+    let simVX = Math.cos(aimAngle) * power * 0.3;
+    let simVY = Math.sin(aimAngle) * power * 0.3;
     for (let i = 0; i < steps; i++) {
-      pvx; pvy += 0.4; px += Math.cos(aimAngle) * power * 0.3; py += pvy;
-      ctx.lineTo(px, py);
-      if (py > H) break;
+      simVY += 0.4;  // gravity
+      simX += simVX;
+      simY += simVY;
+      ctx.lineTo(simX, simY);
+      if (simY > H) break;
     }
     ctx.stroke(); ctx.setLineDash([]);
     // Power bar
