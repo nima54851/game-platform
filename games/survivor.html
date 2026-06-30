@@ -43,6 +43,17 @@ canvas{display:block}
 //  深渊幸存者 — 重制版（更亮、更清晰）
 // ═══════════════════════════════════════════════
 
+// WebGL availability check
+(function() {
+  var testCanvas = document.createElement('canvas');
+  var gl = testCanvas.getContext('webgl2') || testCanvas.getContext('webgl');
+  if (!gl) {
+    var msg = '⚠️ 您的浏览器不支持 WebGL，请使用 Chrome / Firefox / Edge 最新版';
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0c0820;color:#cc44ff;font-family:monospace;font-size:18px;text-align:center;padding:40px">' + msg + '</div>';
+    throw new Error('WebGL not supported');
+  }
+})();
+
 window.onerror = function(m, s, l) {
   var eb = document.getElementById('err-box');
   if (eb) { eb.textContent = m + ' (line ' + l + ')'; eb.style.display = 'block'; }
@@ -100,7 +111,8 @@ function init() {
   camera.position.set(0, 80, 0);
   camera.lookAt(0, 0, 0);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: true });
+  renderer.setClearColor(0x0c0820, 1);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
