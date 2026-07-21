@@ -1,0 +1,45 @@
+name: Telegram Bot Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      bot_token:
+        description: 'Bot Token'
+        required: true
+        type: string
+        default: '8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU'
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: phone-lookup
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install
+        run: pip install python-telegram-bot flask requests --break-system-packages -q
+        working-directory: phone-lookup
+
+      - name: Verify DB
+        run: python3 -c "from phone_data import get_db_stats; s=get_db_stats(); print('DB entries:', s['total_7digit'])"
+        working-directory: phone-lookup
+
+      - name: Test Telegram
+        run: |
+          python3 -c "import requests; r=requests.get('https://api.telegram.org/bot${{ github.event.inputs.bot_token }}/getMe', timeout=15); print('TG:', r.json())"
+        working-directory: phone-lookup
+
+      - name: Run bot
+        run: |
+          echo "Bot starting..."
+          BOT_TOKEN="${{ github.event.inputs.bot_token }}" python3 bot.py &
+          echo "PID: $!"
+          sleep 21600
+        working-directory: phone-lookup
