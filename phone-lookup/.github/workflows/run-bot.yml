@@ -1,0 +1,35 @@
+name: Run Phone Lookup Bot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install
+        run: pip install python-telegram-bot flask --break-system-packages -q
+
+      - name: Verify DB
+        run: python3 -c "from phone_data import get_db_stats; s=get_db_stats(); print(f'DB: {s[\'total_7digit\']} entries')"
+
+      - name: Run bot
+        env:
+          BOT_TOKEN: \${{ secrets.BOT_TOKEN }}
+        run: |
+          echo "Bot starting..."
+          timeout 3600 python3 bot.py &
+          echo "Bot PID: $!"
+          # keep alive
+          while true; do sleep 60; done
