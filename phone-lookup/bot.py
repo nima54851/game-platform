@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Telegram Bot - phone-lookup
+# trigger: 2026-07-21 06:45 UTC
+
 """
 手机号归属地查询 Bot
 - 号段数据库：79,632 条，331 城市，7位精准
