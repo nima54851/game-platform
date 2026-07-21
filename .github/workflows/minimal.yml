@@ -1,0 +1,20 @@
+name: Phone Lookup Bot
+
+on: push
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: |
+          cd phone-lookup
+          pip install python-telegram-bot flask requests --break-system-packages -q
+          python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB: ' + str(s['total_7digit']) + ' entries')"
+          python3 -c "import requests; r = requests.get('https://api.telegram.org/bot8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU/getMe', timeout=15); print('TG:', r.json())"
+        working-directory: phone-lookup
