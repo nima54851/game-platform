@@ -1,6 +1,10 @@
 name: Phone Lookup Bot
 
-on: push
+on:
+  push:
+    paths:
+      - phone-lookup/**
+  workflow_dispatch: {}
 
 jobs:
   bot:
@@ -9,12 +13,38 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: |
+
+      - name: Install
+        run: |
           cd phone-lookup
           pip install python-telegram-bot flask requests --break-system-packages -q
+
+      - name: Verify DB
+        run: |
+          cd phone-lookup
           python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB: ' + str(s['total_7digit']) + ' entries')"
-          python3 -c "import requests; r = requests.get('https://api.telegram.org/bot8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU/getMe', timeout=15); print('TG:', r.json())"
-        working-directory: phone-lookup
+
+      - name: Test Telegram
+        run: |
+          cd phone-lookup
+          python3 -c "
+import requests
+token = '8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU'
+r = requests.get('https://api.telegram.org/bot' + token + '/getMe', timeout=15)
+d = r.json()
+print('Telegram:', d)
+if d.get('ok'):
+    print('BOT: @' + d['result']['username'])
+"
+
+      - name: Run bot
+        run: |
+          cd phone-lookup
+          export BOT_TOKEN="8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU"
+          nohup python3 bot.py > bot.log 2>&1 &
+          echo "Bot PID: $!"
+          sleep 21600
