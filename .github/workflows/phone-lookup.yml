@@ -1,10 +1,11 @@
-name: Run Phone Lookup Bot
+name: Phone Lookup Bot
 
 on:
   push:
+    branches:
+      - main
     paths:
-      - phone-lookup/
-      - .github/workflows/phone-lookup.yml
+      - phone-lookup/**
   workflow_dispatch:
 
 jobs:
@@ -13,46 +14,41 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: |
-            phone-lookup
-            .github/workflows/phone-lookup.yml
-          sparse-checkout-cone-mode: false
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install
         run: |
           cd phone-lookup
           pip install python-telegram-bot flask requests --break-system-packages -q
 
-      - name: Verify database
+      - name: Verify DB
         run: |
           cd phone-lookup
-          python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB OK: ' + str(s['total_7digit']) + ' entries')"
+          python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB: ' + str(s['total_7digit']) + ' entries')"
 
-      - name: Test Telegram connectivity
+      - name: Test Telegram
         run: |
           cd phone-lookup
           python3 -c "
-import os, requests
-token = os.environ.get('BOT_TOKEN', '8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU')
-r = requests.get(f'https://api.telegram.org/bot{token}/getMe', timeout=15)
-data = r.json()
-print('Telegram getMe:', data)
-if data.get('ok'):
-    print('BOT USERNAME:', data['result']['username'])
-    print('BOT NAME:', data['result']['first_name'])
+import requests
+token = '8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU'
+r = requests.get('https://api.telegram.org/bot' + token + '/getMe', timeout=15)
+d = r.json()
+print('Telegram:', d)
+if d.get('ok'):
+    print('BOT: @' + d['result']['username'])
 "
 
-      - name: Start bot
+      - name: Run bot
         run: |
           cd phone-lookup
           export BOT_TOKEN="8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU"
-          echo "Starting bot..."
-          python3 bot.py &
+          nohup python3 bot.py > bot.log 2>&1 &
           echo "Bot PID: $!"
           sleep 21600
