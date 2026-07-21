@@ -6,11 +6,6 @@ on:
       - 'phone-lookup/**'
       - '.github/workflows/phone-lookup.yml'
   workflow_dispatch:
-    inputs:
-      bot_token:
-        description: 'Bot Token'
-        required: false
-        type: string
 
 jobs:
   bot:
