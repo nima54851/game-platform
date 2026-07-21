@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
     inputs:
       bot_token:
-        description: 'Telegram Bot Token'
-        required: true
+        description: 'Bot Token'
+        required: false
         type: string
 
 jobs:
@@ -25,32 +25,26 @@ jobs:
             .github/workflows/phone-lookup.yml
           sparse-checkout-cone-mode: false
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install
+      - name: Install dependencies
         run: |
           cd phone-lookup
           pip install python-telegram-bot flask --break-system-packages -q
 
-      - name: Verify DB
+      - name: Verify database
         run: |
           cd phone-lookup
-          python3 -c "
-from phone_data import get_db_stats
-s = get_db_stats()
-count = s['total_7digit']
-print('DB: ' + str(count) + ' entries')
-"
+          python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB OK: ' + str(s['total_7digit']) + ' entries')"
 
-      - name: Run bot
+      - name: Start bot
         env:
-          BOT_TOKEN: \${{ github.event.inputs.bot_token || '8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU' }}
+          BOT_TOKEN: 8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU
         run: |
           cd phone-lookup
-          echo "🤖 Bot starting..."
+          echo "Bot starting..."
           python3 bot.py &
-          echo "Bot PID: $!"
+          echo "Running for 6 hours..."
           sleep 21600
