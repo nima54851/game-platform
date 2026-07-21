@@ -17,7 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          path: phone-lookup
+          sparse-checkout: |
+            phone-lookup
+          sparse-checkout-cone-mode: false
 
       - uses: actions/setup-python@v5
         with:
