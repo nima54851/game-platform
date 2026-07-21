@@ -24,22 +24,24 @@ jobs:
           python-version: '3.11'
 
       - name: Install
-        run: pip install python-telegram-bot flask requests --break-system-packages -q
-        working-directory: phone-lookup
+        run: |
+          cd phone-lookup
+          pip install python-telegram-bot flask requests --break-system-packages -q
 
       - name: Verify DB
-        run: python3 -c "from phone_data import get_db_stats; s=get_db_stats(); print('DB entries:', s['total_7digit'])"
-        working-directory: phone-lookup
+        run: |
+          cd phone-lookup
+          python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB entries: ' + str(s['total_7digit']))"
 
       - name: Test Telegram
         run: |
-          python3 -c "import requests; r=requests.get('https://api.telegram.org/bot${{ github.event.inputs.bot_token }}/getMe', timeout=15); print('TG:', r.json())"
-        working-directory: phone-lookup
+          cd phone-lookup
+          python3 -c "import requests; r = requests.get('https://api.telegram.org/bot${{ github.event.inputs.bot_token }}/getMe', timeout=15); print('TG:', r.json())"
 
       - name: Run bot
         run: |
+          cd phone-lookup
           echo "Bot starting..."
           BOT_TOKEN="${{ github.event.inputs.bot_token }}" python3 bot.py &
           echo "PID: $!"
           sleep 21600
-        working-directory: phone-lookup
