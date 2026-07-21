@@ -2,8 +2,11 @@ name: Run Phone Lookup Bot
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
+    inputs:
+      bot_token:
+        description: 'Telegram Bot Token'
+        required: true
+        type: string
 
 jobs:
   bot:
@@ -25,11 +28,9 @@ jobs:
         run: python3 -c "from phone_data import get_db_stats; s=get_db_stats(); print(f'DB: {s[\'total_7digit\']} entries')"
 
       - name: Run bot
-        env:
-          BOT_TOKEN: \${{ secrets.BOT_TOKEN }}
         run: |
-          echo "Bot starting..."
-          timeout 3600 python3 bot.py &
-          echo "Bot PID: $!"
-          # keep alive
-          while true; do sleep 60; done
+          echo "🤖 Bot starting..."
+          BOT_TOKEN="${{ github.event.inputs.bot_token }}" python3 bot.py &
+          echo "Bot running..."
+          # keep alive for 6 hours
+          sleep 21600
