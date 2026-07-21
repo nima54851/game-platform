@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Telegram Bot - phone-lookup
-# trigger: 2026-07-21 06:45 UTC
+# trigger: 2026-07-21 06:45 UTC - FIX: use phone_data.py module
 
 """
 手机号归属地查询 Bot
@@ -17,84 +17,15 @@ from flask import Flask, request, jsonify, render_template_string
 try:
     from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
     from telegram.ext import (
-        Application, CommandHandler, MessageHandler, filters, 
+        Application, CommandHandler, MessageHandler, filters,
         ContextTypes, CallbackQueryHandler
     )
     TELEGRAM_OK = True
 except ImportError:
     TELEGRAM_OK = False
 
-# ========== 号段数据库 ==========
-DB_FILE = os.path.join(os.path.dirname(__file__), "phone_db.json")
-
-_db_cache = None
-
-def load_db():
-    global _db_cache
-    if _db_cache is None:
-        with open(DB_FILE, encoding='utf-8') as f:
-            _db_cache = json.load(f)
-    return _db_cache
-
-def lookup_phone(phone: str) -> dict:
-    """查询手机号归属地"""
-    digits = re.sub(r'\D', '', phone)
-    if len(digits) < 7:
-        return {'success': False, 'error': '手机号至少需要7位'}
-    prefix7 = digits[:7]
-    prefix8 = digits[:8]
-    
-    db = load_db()
-    
-    # 优先精确匹配7位号段
-    if prefix7 in db:
-        entry = db[prefix7]
-        return {
-            'success': True,
-            'phone': digits[:11],
-            'phone_display': f"{digits[0:3]} {digits[3:7]} {digits[7:11]}",
-            'operator': entry.get('operator', '未知'),
-            'province': entry.get('province', ''),
-            'city': entry.get('city', ''),
-            'type': entry.get('type', ''),
-            'precision': '城市级别',
-            'prefix': prefix7,
-        }
-    
-    # 8位匹配
-    if prefix8 in db:
-        entry = db[prefix8]
-        return {
-            'success': True,
-            'phone': digits[:11],
-            'phone_display': f"{digits[0:3]} {digits[3:7]} {digits[7:11]}",
-            'operator': entry.get('operator', '未知'),
-            'province': entry.get('province', ''),
-            'city': entry.get('city', ''),
-            'type': entry.get('type', ''),
-            'precision': '号段精确',
-            'prefix': prefix8,
-        }
-    
-    # 降级到7位以内
-    for l in [6, 5, 4, 3]:
-        p = digits[:l]
-        if p in db:
-            entry = db[p]
-            return {
-                'success': True,
-                'phone': digits[:11],
-                'phone_display': f"{digits[0:3]} {digits[3:7]} {digits[7:11]}",
-                'operator': entry.get('operator', '未知'),
-                'province': entry.get('province', ''),
-                'city': entry.get('city', ''),
-                'type': entry.get('type', ''),
-                'precision': f'号段{entry.get("type","")}',
-                'prefix': p,
-            }
-    
-    return {'success': False, 'error': '未找到该号段'}
-
+# ========== 号段数据库（使用 phone_data 模块） ==========
+from phone_data import lookup as phone_lookup, get_db_stats, _load_db
 
 # ========== 区县/村镇增强 ==========
 CITY_DISTRICTS = {
@@ -180,33 +111,22 @@ def enrich_result(result: dict) -> dict:
     """为查询结果补充区县和村镇"""
     if not result.get('success'):
         return result
-    
     city = result.get('city', '')
     phone = result.get('phone', '')
-    
     if city:
         districts = CITY_DISTRICTS.get(city, [])
         if districts:
-            idx = int(phone[-4:]) % len(districts)
+            idx = int(phone[-4:]) % len(districts) if phone else 0
             result['district'] = districts[idx]
-            
             towns_map = CITY_TOWNS.get(city, {})
             towns = towns_map.get(districts[idx], [])
             if towns:
-                town_idx = int(phone[-2:]) % len(towns)
+                town_idx = int(phone[-2:]) % len(towns) if phone else 0
                 result['town'] = towns[town_idx]
-    
     return result
-
 
 # ========== Flask App ==========
 app = Flask(__name__)
-
-LANDING = open(os.path.join(os.path.dirname(__file__), 'templates/index.html'), encoding='utf-8').read() \
-    if os.path.exists(os.path.join(os.path.dirname(__file__), 'templates/index.html')) else None
-
-HTML_PAGE = open(os.path.join(os.path.dirname(__file__), 'web/index.html'), encoding='utf-8').read() \
-    if os.path.exists(os.path.join(os.path.dirname(__file__), 'web/index.html')) else None
 
 # 内联 HTML
 LANDING_HTML = """
@@ -244,8 +164,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .b-tel{background:#fce4ec;color:#c62828}
 .b-brd{background:#fff3e0;color:#e65100}
 .b-unknown{background:#f5f5f5;color:#666}
-.stats{text-align:center;color:rgba(255,255,255,.7);font-size:12px;margin-top:30px}
-.stats span{margin:0 10px}
 .loading{text-align:center;padding:20px;display:none}
 .loading.show{display:block}
 .error-msg{color:#c62828;text-align:center;padding:20px}
@@ -274,10 +192,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="result-card" id="result">
     <div id="resultContent"></div>
   </div>
-  <div class="stats">
-    <span>📊 数据：331 城市 · 79,632 号段</span>
-    <span>🤖 Telegram Bot</span>
-  </div>
 </div>
 <script>
 function q(p){document.getElementById('phoneInput').value=p;search()}
@@ -297,14 +211,11 @@ function search(){
       var op=d.operator||'';
       if(op.includes('移动'))bc='b-mob';else if(op.includes('联通'))bc='b-uni';else if(op.includes('电信'))bc='b-tel';else if(op.includes('广电'))bc='b-brd';
       var html='<div style="font-size:12px;color:#888;padding-bottom:12px;border-bottom:1px solid #eee;margin-bottom:16px">📋 查询结果</div>';
-      html+='<div class="result-item"><span class="result-label">📱 号码</span><span class="result-value">'+d.phone_display+'</span></div>';
+      html+='<div class="result-item"><span class="result-label">📱 号码</span><span class="result-value">'+d.phone+'</span></div>';
       html+='<div class="result-item"><span class="result-label">🏢 运营商</span><span class="result-value"><span class="badge '+bc+'">'+d.operator+'</span></span></div>';
       if(d.province)html+='<div class="result-item"><span class="result-label">📍 省份</span><span class="result-value">'+d.province+'</span></div>';
       if(d.city)html+='<div class="result-item"><span class="result-label">🏙️ 城市</span><span class="result-value">'+d.city+'</span></div>';
-      if(d.district)html+='<div class="result-item"><span class="result-label">🏘️ 区县</span><span class="result-value">'+d.district+'</span></div>';
-      if(d.town)html+='<div class="result-item"><span class="result-label">🏡 街道/镇</span><span class="result-value">'+d.town+'</span></div>';
-      if(d.type)html+='<div class="result-item"><span class="result-label">📡 类型</span><span class="result-value">'+d.type+'</span></div>';
-      html+='<div class="result-item"><span class="result-label">🎯 精度</span><span class="result-value">'+d.precision+'</span></div>';
+      if(d.precision)html+='<div class="result-item"><span class="result-label">🎯 精度</span><span class="result-value">'+d.precision+'</span></div>';
       html+='<div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#aaa">数据来源：工信部公开号段</div>';
       c.innerHTML=html;
     })
@@ -324,19 +235,20 @@ def api_query():
     phone = request.args.get('phone', '')
     if not phone:
         return jsonify({'success': False, 'error': '请输入手机号'})
-    result = lookup_phone(phone)
+    result = phone_lookup(phone)
     if result.get('success'):
         result = enrich_result(result)
     return jsonify(result)
 
 @app.route('/health')
 def health():
-    return jsonify({'status': 'ok', 'db_entries': len(load_db())})
+    db = _load_db()
+    return jsonify({'status': 'ok', 'db_entries': len(db)})
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 PORT = int(os.environ.get("PORT", 8080))
 
 # ========== Telegram Bot ==========
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 if TELEGRAM_OK and BOT_TOKEN:
     logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
     logger = logging.getLogger(__name__)
@@ -360,44 +272,43 @@ if TELEGRAM_OK and BOT_TOKEN:
             return
         m = re.search(r'(\+?86)?[\s-]*(\d{3,11})', text)
         if not m:
-            await update.message.reply_text("❌ 请输入正确的手机号码（11位）", parse_mode="Markdown")
+            await update.message.reply_text("❌ 请输入正确的手机号码（11位）")
             return
-        result = enrich_result(lookup_phone(m.group(2)))
+        result = enrich_result(phone_lookup(m.group(2)))
         if not result['success']:
             await update.message.reply_text(f"❌ {result.get('error','查询失败')}")
             return
-        
         op = result.get('operator', '')
         icon = {'中国移动':'📶','中国联通':'📡','中国电信':'📺','中国广电':'📻'}.get(op,'🏢')
         lines = [
-            f"🔍 *手机号归属地*\n",
-            f"📱 `{result['phone_display']}`",
+            f"🔍 *手机号归属地*",
+            f"📱 `{result.get('phone','')}`",
             f"{icon} 运营商：{op}",
         ]
         if result.get('province'): lines.append(f"📍 省份：{result['province']}")
         if result.get('city'): lines.append(f"🏙️ 城市：{result['city']}")
         if result.get('district'): lines.append(f"🏘️ 区县：{result['district']}")
         if result.get('town'): lines.append(f"🏡 街道：{result['town']}")
-        if result.get('type'): lines.append(f"📡 类型：{result['type']}")
-        lines.extend([f"🎯 精度：{result['precision']}", "━━━━━━━━━━━━━", "_数据：工信部号段_"])
-        
+        lines.append(f"🎯 精度：{result.get('precision','')}")
+        lines.extend(["━━━━━━━━━━━━━", "_数据：工信部号段_"])
         await update.message.reply_text('\n'.join(lines), parse_mode="Markdown")
 
     def run_bot():
+        logger.info("🤖 正在连接 Telegram Bot...")
         app_tg = Application.builder().token(BOT_TOKEN).build()
         app_tg.add_handler(CommandHandler("start", start_cmd))
         app_tg.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_msg))
-        logger.info("🤖 Bot 启动")
-        app_tg.run_polling()
+        logger.info("🤖 Bot 启动成功，等待消息...")
+        app_tg.run_polling(drop_pending_updates=True)
 
     from threading import Thread
     t = Thread(target=run_bot, daemon=True)
     t.start()
-    print("✅ Telegram Bot 已启动")
+    print("✅ Telegram Bot 已在后台线程启动")
 
 def main():
     print(f"🌐 Web 服务启动 :{PORT}")
-    app.run(host='0.0.0.0', port=PORT, debug=False)
+    app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)
 
 if __name__ == '__main__':
     main()
