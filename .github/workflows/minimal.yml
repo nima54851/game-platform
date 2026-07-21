@@ -4,7 +4,6 @@ on:
   push:
     paths:
       - phone-lookup/**
-  workflow_dispatch: {}
 
 jobs:
   bot:
@@ -31,20 +30,11 @@ jobs:
       - name: Test Telegram
         run: |
           cd phone-lookup
-          python3 -c "
-import requests
-token = '8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU'
-r = requests.get('https://api.telegram.org/bot' + token + '/getMe', timeout=15)
-d = r.json()
-print('Telegram:', d)
-if d.get('ok'):
-    print('BOT: @' + d['result']['username'])
-"
+          python3 -c "import requests; r = requests.get('https://api.telegram.org/bot8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU/getMe', timeout=15); print('TG:', r.json())"
 
       - name: Run bot
         run: |
           cd phone-lookup
-          export BOT_TOKEN="8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU"
           nohup python3 bot.py > bot.log 2>&1 &
           echo "Bot PID: $!"
           sleep 21600
