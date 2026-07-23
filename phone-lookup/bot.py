@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
-# Telegram Bot - phone-lookup
-# trigger: 2026-07-21 06:45 UTC - FIX: use phone_data.py module
-
 """
 手机号归属地查询 Bot
 - 号段数据库：79,632 条，331 城市，7位精准
@@ -17,15 +14,116 @@ from flask import Flask, request, jsonify, render_template_string
 try:
     from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
     from telegram.ext import (
-        Application, CommandHandler, MessageHandler, filters,
+        Application, CommandHandler, MessageHandler, filters, 
         ContextTypes, CallbackQueryHandler
     )
     TELEGRAM_OK = True
 except ImportError:
     TELEGRAM_OK = False
 
-# ========== 号段数据库（使用 phone_data 模块） ==========
-from phone_data import lookup as phone_lookup, get_db_stats, _load_db
+# ========== 号段数据库 ==========
+DB_FILE = os.path.join(os.path.dirname(__file__), "phone_db.json")
+
+_db_cache = None
+
+def load_db():
+    """加载号段数据库，文件不存在时回退到 phone_data.py 的内置数据"""
+    global _db_cache
+    if _db_cache is not None:
+        return _db_cache
+
+    # 优先从 JSON 文件加载
+    if os.path.exists(DB_FILE):
+        try:
+            with open(DB_FILE, encoding='utf-8') as f:
+                _db_cache = json.load(f)
+                return _db_cache
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"⚠️ phone_db.json 读取失败 ({e})，回退到 phone_data.py")
+
+    # 回退：导入 phone_data.py 的 _load_db（自带 fallback）
+    try:
+        import phone_data
+        _db_cache = phone_data._load_db()
+        return _db_cache
+    except Exception as e:
+        print(f"⚠️ phone_data.py 回退也失败 ({e})，使用最小内置数据库")
+
+    # 最后的保底：最小运营商字典
+    _db_cache = {
+        **{p: {"operator": "中国移动", "province": "全国", "city": "", "type": "2G/3G/4G/5G"}
+           for p in ["134","135","136","137","138","139","144","147","148",
+                     "150","151","152","157","158","159","170","172","178",
+                     "182","183","184","187","188","195","197","198"]},
+        **{p: {"operator": "中国联通", "province": "全国", "city": "", "type": "2G/3G/4G"}
+           for p in ["130","131","132","145","146","155","156","166","167",
+                     "171","175","176","185","186","196"]},
+        **{p: {"operator": "中国电信", "province": "全国", "city": "", "type": "2G/3G/4G/5G"}
+           for p in ["133","149","153","173","177","180","181","189","191","193","199"]},
+        **{p: {"operator": "中国广电", "province": "全国", "city": "", "type": "5G"}
+           for p in ["192"]},
+    }
+    return _db_cache
+
+def lookup_phone(phone: str) -> dict:
+    """查询手机号归属地"""
+    digits = re.sub(r'\D', '', phone)
+    if len(digits) < 7:
+        return {'success': False, 'error': '手机号至少需要7位'}
+    prefix7 = digits[:7]
+    prefix8 = digits[:8]
+    
+    db = load_db()
+    
+    # 优先精确匹配7位号段
+    if prefix7 in db:
+        entry = db[prefix7]
+        return {
+            'success': True,
+            'phone': digits[:11],
+            'phone_display': f"{digits[0:3]} {digits[3:7]} {digits[7:11]}",
+            'operator': entry.get('operator', '未知'),
+            'province': entry.get('province', ''),
+            'city': entry.get('city', ''),
+            'type': entry.get('type', ''),
+            'precision': '城市级别',
+            'prefix': prefix7,
+        }
+    
+    # 8位匹配
+    if prefix8 in db:
+        entry = db[prefix8]
+        return {
+            'success': True,
+            'phone': digits[:11],
+            'phone_display': f"{digits[0:3]} {digits[3:7]} {digits[7:11]}",
+            'operator': entry.get('operator', '未知'),
+            'province': entry.get('province', ''),
+            'city': entry.get('city', ''),
+            'type': entry.get('type', ''),
+            'precision': '号段精确',
+            'prefix': prefix8,
+        }
+    
+    # 降级到7位以内
+    for l in [6, 5, 4, 3]:
+        p = digits[:l]
+        if p in db:
+            entry = db[p]
+            return {
+                'success': True,
+                'phone': digits[:11],
+                'phone_display': f"{digits[0:3]} {digits[3:7]} {digits[7:11]}",
+                'operator': entry.get('operator', '未知'),
+                'province': entry.get('province', ''),
+                'city': entry.get('city', ''),
+                'type': entry.get('type', ''),
+                'precision': f'号段{entry.get("type","")}',
+                'prefix': p,
+            }
+    
+    return {'success': False, 'error': '未找到该号段'}
+
 
 # ========== 区县/村镇增强 ==========
 CITY_DISTRICTS = {
@@ -111,22 +209,33 @@ def enrich_result(result: dict) -> dict:
     """为查询结果补充区县和村镇"""
     if not result.get('success'):
         return result
+    
     city = result.get('city', '')
     phone = result.get('phone', '')
+    
     if city:
         districts = CITY_DISTRICTS.get(city, [])
         if districts:
-            idx = int(phone[-4:]) % len(districts) if phone else 0
+            idx = int(phone[-4:]) % len(districts)
             result['district'] = districts[idx]
+            
             towns_map = CITY_TOWNS.get(city, {})
             towns = towns_map.get(districts[idx], [])
             if towns:
-                town_idx = int(phone[-2:]) % len(towns) if phone else 0
+                town_idx = int(phone[-2:]) % len(towns)
                 result['town'] = towns[town_idx]
+    
     return result
+
 
 # ========== Flask App ==========
 app = Flask(__name__)
+
+LANDING = open(os.path.join(os.path.dirname(__file__), 'templates/index.html'), encoding='utf-8').read() \
+    if os.path.exists(os.path.join(os.path.dirname(__file__), 'templates/index.html')) else None
+
+HTML_PAGE = open(os.path.join(os.path.dirname(__file__), 'web/index.html'), encoding='utf-8').read() \
+    if os.path.exists(os.path.join(os.path.dirname(__file__), 'web/index.html')) else None
 
 # 内联 HTML
 LANDING_HTML = """
@@ -164,6 +273,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .b-tel{background:#fce4ec;color:#c62828}
 .b-brd{background:#fff3e0;color:#e65100}
 .b-unknown{background:#f5f5f5;color:#666}
+.stats{text-align:center;color:rgba(255,255,255,.7);font-size:12px;margin-top:30px}
+.stats span{margin:0 10px}
 .loading{text-align:center;padding:20px;display:none}
 .loading.show{display:block}
 .error-msg{color:#c62828;text-align:center;padding:20px}
@@ -192,6 +303,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="result-card" id="result">
     <div id="resultContent"></div>
   </div>
+  <div class="stats">
+    <span>📊 数据：331 城市 · 79,632 号段</span>
+    <span>🤖 Telegram Bot</span>
+  </div>
 </div>
 <script>
 function q(p){document.getElementById('phoneInput').value=p;search()}
@@ -211,11 +326,14 @@ function search(){
       var op=d.operator||'';
       if(op.includes('移动'))bc='b-mob';else if(op.includes('联通'))bc='b-uni';else if(op.includes('电信'))bc='b-tel';else if(op.includes('广电'))bc='b-brd';
       var html='<div style="font-size:12px;color:#888;padding-bottom:12px;border-bottom:1px solid #eee;margin-bottom:16px">📋 查询结果</div>';
-      html+='<div class="result-item"><span class="result-label">📱 号码</span><span class="result-value">'+d.phone+'</span></div>';
+      html+='<div class="result-item"><span class="result-label">📱 号码</span><span class="result-value">'+d.phone_display+'</span></div>';
       html+='<div class="result-item"><span class="result-label">🏢 运营商</span><span class="result-value"><span class="badge '+bc+'">'+d.operator+'</span></span></div>';
       if(d.province)html+='<div class="result-item"><span class="result-label">📍 省份</span><span class="result-value">'+d.province+'</span></div>';
       if(d.city)html+='<div class="result-item"><span class="result-label">🏙️ 城市</span><span class="result-value">'+d.city+'</span></div>';
-      if(d.precision)html+='<div class="result-item"><span class="result-label">🎯 精度</span><span class="result-value">'+d.precision+'</span></div>';
+      if(d.district)html+='<div class="result-item"><span class="result-label">🏘️ 区县</span><span class="result-value">'+d.district+'</span></div>';
+      if(d.town)html+='<div class="result-item"><span class="result-label">🏡 街道/镇</span><span class="result-value">'+d.town+'</span></div>';
+      if(d.type)html+='<div class="result-item"><span class="result-label">📡 类型</span><span class="result-value">'+d.type+'</span></div>';
+      html+='<div class="result-item"><span class="result-label">🎯 精度</span><span class="result-value">'+d.precision+'</span></div>';
       html+='<div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#aaa">数据来源：工信部公开号段</div>';
       c.innerHTML=html;
     })
@@ -235,20 +353,19 @@ def api_query():
     phone = request.args.get('phone', '')
     if not phone:
         return jsonify({'success': False, 'error': '请输入手机号'})
-    result = phone_lookup(phone)
+    result = lookup_phone(phone)
     if result.get('success'):
         result = enrich_result(result)
     return jsonify(result)
 
 @app.route('/health')
 def health():
-    db = _load_db()
-    return jsonify({'status': 'ok', 'db_entries': len(db)})
+    return jsonify({'status': 'ok', 'db_entries': len(load_db())})
 
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 PORT = int(os.environ.get("PORT", 8080))
 
 # ========== Telegram Bot ==========
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 if TELEGRAM_OK and BOT_TOKEN:
     logging.basicConfig(format="%(asctime)s %(levelname)s %(message)s", level=logging.INFO)
     logger = logging.getLogger(__name__)
@@ -272,43 +389,73 @@ if TELEGRAM_OK and BOT_TOKEN:
             return
         m = re.search(r'(\+?86)?[\s-]*(\d{3,11})', text)
         if not m:
-            await update.message.reply_text("❌ 请输入正确的手机号码（11位）")
+            await update.message.reply_text("❌ 请输入正确的手机号码（11位）", parse_mode="Markdown")
             return
-        result = enrich_result(phone_lookup(m.group(2)))
+        result = enrich_result(lookup_phone(m.group(2)))
         if not result['success']:
             await update.message.reply_text(f"❌ {result.get('error','查询失败')}")
             return
+        
         op = result.get('operator', '')
         icon = {'中国移动':'📶','中国联通':'📡','中国电信':'📺','中国广电':'📻'}.get(op,'🏢')
         lines = [
-            f"🔍 *手机号归属地*",
-            f"📱 `{result.get('phone','')}`",
+            f"🔍 *手机号归属地*\n",
+            f"📱 `{result['phone_display']}`",
             f"{icon} 运营商：{op}",
         ]
         if result.get('province'): lines.append(f"📍 省份：{result['province']}")
         if result.get('city'): lines.append(f"🏙️ 城市：{result['city']}")
         if result.get('district'): lines.append(f"🏘️ 区县：{result['district']}")
         if result.get('town'): lines.append(f"🏡 街道：{result['town']}")
-        lines.append(f"🎯 精度：{result.get('precision','')}")
-        lines.extend(["━━━━━━━━━━━━━", "_数据：工信部号段_"])
+        if result.get('type'): lines.append(f"📡 类型：{result['type']}")
+        lines.extend([f"🎯 精度：{result['precision']}", "━━━━━━━━━━━━━", "_数据：工信部号段_"])
+        
         await update.message.reply_text('\n'.join(lines), parse_mode="Markdown")
 
+    async def poll_loop(app_tg):
+        """asyncio 轮询循环，避免 signal handler 注册问题"""
+        import asyncio
+        loop = asyncio.get_event_loop()
+        # 先初始化 bot（触发网络连接）
+        await app_tg.initialize()
+        # 再开始轮询
+        await app_tg.updater.start_polling()
+        # 保持运行直到被取消
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            await app_tg.updater.stop_polling()
+
     def run_bot():
-        logger.info("🤖 正在连接 Telegram Bot...")
         app_tg = Application.builder().token(BOT_TOKEN).build()
         app_tg.add_handler(CommandHandler("start", start_cmd))
         app_tg.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_msg))
-        logger.info("🤖 Bot 启动成功，等待消息...")
-        app_tg.run_polling(drop_pending_updates=True)
+        logger.info("🤖 Bot 启动")
+        import asyncio
+        import warnings
+        # Python 3.12+: set_wakeup_fd 在非主线程会抛 ValueError
+        # 捕获它，避免 Bot 启动崩溃
+        loop = asyncio.new_event_loop()
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                asyncio.set_event_loop(loop)
+        except (ValueError, OSError):
+            # set_wakeup_fd 失败，跳过（GitHub Actions/沙箱环境常见）
+            pass
+        try:
+            loop.run_until_complete(poll_loop(app_tg))
+        finally:
+            loop.close()
 
     from threading import Thread
     t = Thread(target=run_bot, daemon=True)
     t.start()
-    print("✅ Telegram Bot 已在后台线程启动")
+    print("✅ Telegram Bot 已启动")
 
 def main():
     print(f"🌐 Web 服务启动 :{PORT}")
-    app.run(host='0.0.0.0', port=PORT, debug=False, use_reloader=False)
+    app.run(host='0.0.0.0', port=PORT, debug=False)
 
 if __name__ == '__main__':
     main()
