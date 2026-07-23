@@ -8,7 +8,7 @@ on:
 jobs:
   bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
@@ -25,25 +25,38 @@ jobs:
       - name: Verify DB
         run: |
           cd phone-lookup
-          python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB entries: ' + str(s['total_7digit']))"
+          python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB entries:', s['total_7digit'])"
 
-      - name: Test Telegram
+      - name: Test Telegram getMe
         run: |
-          cd phone-lookup
-          python3 -c "import requests; r = requests.get('https://api.telegram.org/bot8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU/getMe', timeout=15); print('TG:', r.json())"
+          python3 -c "import requests; r = requests.get('https://api.telegram.org/bot8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU/getMe', timeout=15); print('getMe:', r.json())"
 
-      - name: Debug token
-        run: |
-          echo "BOT_TOKEN is: $BOT_TOKEN"
-          echo "BOT_TOKEN len: ${#BOT_TOKEN}"
-
-      - name: Run bot
+      - name: Quick bot poll check
         env:
           BOT_TOKEN: 8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU
         run: |
           cd phone-lookup
-          echo "BOT_TOKEN=$BOT_TOKEN"
-          python3 bot.py &
-          sleep 5
-          ps aux | grep bot.py | grep -v grep || echo 'bot.py not running'
-          sleep 21595
+          python3 -c "
+import os, asyncio, sys
+sys.path.insert(0, '.')
+os.environ['BOT_TOKEN'] = os.environ.get('BOT_TOKEN', '')
+from telegram.ext import Application
+
+async def quick_check():
+    app = Application.builder().token(os.environ['BOT_TOKEN']).build()
+    await app.initialize()
+    me = await app.bot.get_me()
+    print('BOT: @' + me.username + ' | first_name: ' + me.first_name)
+    # Try to get updates (3 sec timeout - if bot is polling elsewhere, this may show empty)
+    try:
+        updates = await app.bot.get_updates(timeout=3, read_timeout=5, write_timeout=5)
+        print('Pending updates:', len(updates))
+        for u in updates:
+            msg = u.message
+            print('  msg_id:', u.update_id, 'from:', msg.from_user.username if msg and msg.from_user else '?', 'text:', msg.text if msg else 'n/a')
+    except Exception as e:
+        print('get_updates error:', type(e).__name__, str(e)[:200])
+    await app.shutdown()
+
+asyncio.run(quick_check())
+" 2>&1
