@@ -7,14 +7,15 @@
 """
 import os
 import re
+import json
+import logging
+from flask import Flask, request, jsonify, render_template_string
 
-# File logging for debugging
-LOG_FILE = "/tmp/bot.log"
 logging.basicConfig(
-    level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    level=logging.INFO,
     handlers=[
-        logging.FileHandler(LOG_FILE),
+        logging.FileHandler("/tmp/bot.log"),
         logging.StreamHandler()
     ]
 )
