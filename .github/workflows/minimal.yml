@@ -33,7 +33,7 @@ jobs:
 
       - name: Quick bot poll check
         env:
-          BOT_TOKEN: 8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU
+          BOT_TOKEN: "8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU"
         run: |
           cd phone-lookup
           python3 -c "
@@ -46,14 +46,13 @@ async def quick_check():
     app = Application.builder().token(os.environ['BOT_TOKEN']).build()
     await app.initialize()
     me = await app.bot.get_me()
-    print('BOT: @' + me.username + ' | first_name: ' + me.first_name)
-    # Try to get updates (3 sec timeout - if bot is polling elsewhere, this may show empty)
+    print('BOT: @' + me.username)
     try:
         updates = await app.bot.get_updates(timeout=3, read_timeout=5, write_timeout=5)
         print('Pending updates:', len(updates))
         for u in updates:
             msg = u.message
-            print('  msg_id:', u.update_id, 'from:', msg.from_user.username if msg and msg.from_user else '?', 'text:', msg.text if msg else 'n/a')
+            print('  update_id:', u.update_id, 'from:', msg.from_user.username if msg and msg.from_user else '?', 'text:', msg.text if msg else 'n/a')
     except Exception as e:
         print('get_updates error:', type(e).__name__, str(e)[:200])
     await app.shutdown()
