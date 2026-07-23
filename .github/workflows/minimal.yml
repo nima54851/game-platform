@@ -25,32 +25,25 @@ jobs:
       - name: Verify DB
         run: |
           cd phone-lookup
-          python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB: ' + str(s['total_7digit']) + ' entries')"
+          python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB entries: ' + str(s['total_7digit']))"
 
       - name: Test Telegram
         run: |
           cd phone-lookup
           python3 -c "import requests; r = requests.get('https://api.telegram.org/bot8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU/getMe', timeout=15); print('TG:', r.json())"
 
+      - name: Debug token
+        run: |
+          echo "BOT_TOKEN is: $BOT_TOKEN"
+          echo "BOT_TOKEN len: ${#BOT_TOKEN}"
+
       - name: Run bot
         env:
           BOT_TOKEN: 8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU
         run: |
           cd phone-lookup
-          echo "=== BOT STARTUP TEST ==="
-          python3 -c "
-import os, sys
-sys.path.insert(0, '.')
-token = os.environ.get('BOT_TOKEN', 'NOT SET')
-print('BOT_TOKEN length:', len(token))
-print('BOT_TOKEN prefix:', token[:10] if token else 'EMPTY')
-"
-          echo "=== RUNNING BOT ==="
-          BOT_TOKEN="$BOT_TOKEN" python3 bot.py 2>&1 &
-          BOT_PID=$!
-          echo "Bot PID: $BOT_PID"
+          echo "BOT_TOKEN=$BOT_TOKEN"
+          python3 bot.py &
           sleep 5
-          echo "=== BOT STATUS AFTER 5s ==="
-          ps aux | grep bot.py | grep -v grep || echo 'bot.py NOT running'
-          echo "=== sleep 21600 ==="
-          sleep 21600
+          ps aux | grep bot.py | grep -v grep || echo 'bot.py not running'
+          sleep 21595
