@@ -3,10 +3,12 @@ name: Quick Telegram Check
 on:
   push:
     paths:
-      - phone-lookup/bot.py
-      - phone-lookup/poll_check.py
-      - phone-lookup/test_msg.py
+      - phone-lookup/test_poll.py
       - .github/workflows/check-tg.yml
+
+concurrency:
+  group: quick-tg-check
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -25,9 +27,9 @@ jobs:
           cd phone-lookup
           pip install python-telegram-bot flask requests --break-system-packages -q
 
-      - name: Send test message
+      - name: Poll Telegram for messages
         env:
           BOT_TOKEN: "8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU"
         run: |
           cd phone-lookup
-          BOT_TOKEN="$BOT_TOKEN" python3 test_msg.py 2>&1
+          BOT_TOKEN="$BOT_TOKEN" python3 test_poll.py 2>&1
