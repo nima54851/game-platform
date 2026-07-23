@@ -38,12 +38,44 @@ jobs:
       - name: Test Telegram
         run: |
           cd phone-lookup
-          python3 -c "import requests; r = requests.get('https://api.telegram.org/bot${{ github.event.inputs.bot_token }}/getMe', timeout=15); print('TG:', r.json())"
+          python3 -c "import requests; r = requests.get('https://api.telegram.org/bot${{ inputs.bot_token }}/getMe', timeout=15); print('TG:', r.json())"
 
-      - name: Run bot
+      - name: Run bot (debug)
         run: |
+          set -x
+          echo "=== DEBUG START ==="
+          echo "TOKEN: ${{ inputs.bot_token }}"
           cd phone-lookup
-          echo "Bot starting..."
-          BOT_TOKEN="${{ github.event.inputs.bot_token }}" python3 bot.py &
-          echo "PID: $!"
+          ls -la
+          echo "Python version:"
+          python3 --version
+          echo "--- bot.py first 5 lines ---"
+          head -5 bot.py
+          echo "--- starting bot ---"
+          BOT_TOKEN="${{ inputs.bot_token }}" python3 -c "
+import os, sys, warnings, asyncio
+sys.path.insert(0, '.')
+os.environ['BOT_TOKEN'] = os.environ.get('BOT_TOKEN', '')
+print('BOT_TOKEN set:', bool(os.environ.get('BOT_TOKEN')))
+from phone_data import get_db_stats
+print('DB OK:', get_db_stats()['total_7digit'])
+import telegram.ext
+print('telegram.ext OK')
+from telegram.ext import Application
+print('Application import OK')
+loop = asyncio.new_event_loop()
+try:
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        asyncio.set_event_loop(loop)
+    print('asyncio.set_event_loop: OK')
+except Exception as e:
+    print('asyncio.set_event_loop ERROR:', type(e).__name__, e)
+loop.close()
+print('=== bot init test DONE ==="
+          echo "=== running actual bot ==="
+          BOT_TOKEN="${{ inputs.bot_token }}" nohup python3 bot.py > bot.log 2>&1 &
+          echo "Bot PID: $!"
+          cat bot.log || true
+          echo "=== bot PID: $! running, sleep 21600 ==="
           sleep 21600
