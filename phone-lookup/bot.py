@@ -7,6 +7,19 @@
 """
 import os
 import re
+
+# File logging for debugging
+LOG_FILE = "/tmp/bot.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 import json
 import logging
 from flask import Flask, request, jsonify, render_template_string
@@ -427,24 +440,26 @@ if TELEGRAM_OK and BOT_TOKEN:
             await app_tg.updater.stop_polling()
 
     def run_bot():
-        app_tg = Application.builder().token(BOT_TOKEN).build()
-        app_tg.add_handler(CommandHandler("start", start_cmd))
-        app_tg.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_msg))
-        logger.info("🤖 Bot 启动")
-        import asyncio
-        import warnings
-        # Python 3.12+: set_wakeup_fd 在非主线程会抛 ValueError
-        # 捕获它，避免 Bot 启动崩溃
-        loop = asyncio.new_event_loop()
+        import traceback
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", DeprecationWarning)
-                asyncio.set_event_loop(loop)
-        except (ValueError, OSError):
-            # set_wakeup_fd 失败，跳过（GitHub Actions/沙箱环境常见）
-            pass
-        try:
+            app_tg = Application.builder().token(BOT_TOKEN).build()
+            app_tg.add_handler(CommandHandler("start", start_cmd))
+            app_tg.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_msg))
+            logger.info("🤖 Bot 启动")
+            import asyncio, warnings
+            loop = asyncio.new_event_loop()
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    asyncio.set_event_loop(loop)
+                logger.info("asyncio event loop set: OK")
+            except Exception as e:
+                logger.error(f"asyncio.set_event_loop failed: {type(e).__name__}: {e}")
+                traceback.print_exc()
             loop.run_until_complete(poll_loop(app_tg))
+        except Exception as e:
+            logger.error(f"run_bot FAILED: {type(e).__name__}: {e}")
+            traceback.print_exc()
         finally:
             loop.close()
 
