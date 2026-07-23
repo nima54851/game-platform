@@ -1,0 +1,36 @@
+name: Quick Telegram Check
+
+on:
+  push:
+    paths:
+      - phone-lookup/poll_check.py
+      - .github/workflows/check-tg.yml
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: |
+          cd phone-lookup
+          pip install python-telegram-bot flask requests --break-system-packages -q
+
+      - name: Verify DB
+        run: |
+          cd phone-lookup
+          python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB entries:', s['total_7digit'])"
+
+      - name: Telegram poll check
+        env:
+          BOT_TOKEN: "8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU"
+        run: |
+          cd phone-lookup
+          BOT_TOKEN="$BOT_TOKEN" python3 poll_check.py
