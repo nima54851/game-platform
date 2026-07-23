@@ -37,7 +37,20 @@ jobs:
           BOT_TOKEN: 8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU
         run: |
           cd phone-lookup
-          echo "BOT_TOKEN=$BOT_TOKEN"
-          nohup python3 bot.py > bot.log 2>&1 &
-          echo "Bot PID: $!"
+          echo "=== BOT STARTUP TEST ==="
+          python3 -c "
+import os, sys
+sys.path.insert(0, '.')
+token = os.environ.get('BOT_TOKEN', 'NOT SET')
+print('BOT_TOKEN length:', len(token))
+print('BOT_TOKEN prefix:', token[:10] if token else 'EMPTY')
+"
+          echo "=== RUNNING BOT ==="
+          BOT_TOKEN="$BOT_TOKEN" python3 bot.py 2>&1 &
+          BOT_PID=$!
+          echo "Bot PID: $BOT_PID"
+          sleep 5
+          echo "=== BOT STATUS AFTER 5s ==="
+          ps aux | grep bot.py | grep -v grep || echo 'bot.py NOT running'
+          echo "=== sleep 21600 ==="
           sleep 21600
