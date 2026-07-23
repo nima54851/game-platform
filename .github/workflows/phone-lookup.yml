@@ -6,7 +6,10 @@ on:
       - main
     paths:
       - phone-lookup/**
-  workflow_dispatch:
+
+concurrency:
+  group: phone-lookup-bot
+  cancel-in-progress: true
 
 jobs:
   bot:
