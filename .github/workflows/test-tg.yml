@@ -1,0 +1,49 @@
+name: Test Telegram Connection
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            phone-lookup
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install requests python-telegram-bot --break-system-packages -q
+
+      - name: Test getMe
+        run: |
+          python3 -c "import requests; r = requests.get('https://api.telegram.org/bot8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU/getMe', timeout=15); print('getMe:', r.json())"
+
+      - name: Test getUpdates
+        run: |
+          python3 -c "import requests; r = requests.get('https://api.telegram.org/bot8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU/getUpdates?timeout=0', timeout=15); print('getUpdates:', r.json())"
+
+      - name: Test bot polling (5 sec test)
+        run: |
+          cd phone-lookup
+          python3 -c "
+import os, asyncio, warnings
+os.environ['BOT_TOKEN'] = '8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU'
+import telegram.ext
+from telegram.ext import Application
+async def test():
+    app = Application.builder().token(os.environ['BOT_TOKEN']).build()
+    await app.initialize()
+    me = await app.bot.get_me()
+    print('Bot username:', me.username)
+    print('Bot first_name:', me.first_name)
+    updates = await app.bot.get_updates(timeout=3)
+    print('Pending updates:', len(updates))
+    await app.shutdown()
+asyncio.run(test())
+" 2>&1
