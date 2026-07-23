@@ -3,6 +3,7 @@ name: Quick Telegram Check
 on:
   push:
     paths:
+      - phone-lookup/bot.py
       - phone-lookup/poll_check.py
       - .github/workflows/check-tg.yml
 
@@ -28,9 +29,17 @@ jobs:
           cd phone-lookup
           python3 -c "from phone_data import get_db_stats; s = get_db_stats(); print('DB entries:', s['total_7digit'])"
 
-      - name: Telegram poll check
+      - name: Run bot for 20s with log capture
         env:
           BOT_TOKEN: "8979991426:AAEtgWjhF1KV_pJZVwzjk-ZE2_Yf1-W4RDU"
         run: |
           cd phone-lookup
-          BOT_TOKEN="$BOT_TOKEN" python3 poll_check.py
+          BOT_TOKEN="$BOT_TOKEN" python3 bot.py &
+          BOT_PID=$!
+          echo "Bot PID: $BOT_PID"
+          sleep 20
+          echo "=== Bot log ==="
+          cat /tmp/bot.log 2>/dev/null || echo "No log file"
+          echo "=== Bot process ==="
+          ps aux | grep bot.py | grep -v grep || echo "Bot not running"
+          kill $BOT_PID 2>/dev/null || true
